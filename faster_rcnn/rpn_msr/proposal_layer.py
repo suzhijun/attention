@@ -23,7 +23,7 @@ transformations to a set of regular boxes (called "anchors").
 
 
 def proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, 
-                        _feat_stride, anchor_scales, anchor_ratios, is_region=False):
+                        _feat_stride, anchor_scales, anchor_ratios, is_relationship=False):
     # Algorithm:
     #
     # for each (H, W) location i
@@ -51,7 +51,7 @@ def proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key,
         'Only single item batches are supported'
     # cfg_key = str(self.phase) # either 'TRAIN' or 'TEST'
     # cfg_key = 'TEST'
-    if is_region:
+    if is_relationship:
         pre_nms_topN = cfg[cfg_key].RPN_PRE_NMS_TOP_N_REGION
         post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N_REGION
         nms_thresh = cfg[cfg_key].RPN_NMS_THRESH_REGION
@@ -160,7 +160,7 @@ def proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key,
     batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)
     blob = np.hstack((batch_inds, proposals.astype(np.float32, copy=False)))
     # print(blob.shape)
-    return blob
+    return blob, scores
     # top[0].reshape(*(blob.shape))
     # top[0].data[...] = blob
 

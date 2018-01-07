@@ -2,12 +2,8 @@ import cv2
 import numpy as np
 import numpy.random as npr
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-import torch.utils.model_zoo as model_zoo
-import torchvision.models as models
-import os.path as osp
 
 from utils.timer import Timer
 from utils.HDN_utils import check_relationship_recall
@@ -17,8 +13,7 @@ from rpn_msr.anchor_target_layer import anchor_target_layer as anchor_target_lay
 from rpn_msr.proposal_target_layer_hdn import proposal_target_layer as proposal_target_layer_py
 from fast_rcnn.bbox_transform import bbox_transform_inv_hdn, clip_boxes
 from fast_rcnn.hierarchical_message_passing_structure import Hierarchical_Message_Passing_Structure
-from Language_Model import Language_Model
-from faster_RPN import RPN
+from RPN import RPN
 from fast_rcnn.config import cfg
 from utils.cython_bbox import bbox_overlaps, bbox_intersections
 from utils.make_cover import compare_rel_rois
@@ -27,9 +22,8 @@ import network
 from network import Conv2d, FC
 # from roi_pooling.modules.roi_pool_py import RoIPool
 from roi_pooling.modules.roi_pool import RoIPool
-from vgg16 import VGG16
 from MSDN_base import HDN_base
-import pdb
+
 
 DEBUG = False
 TIME_IT = cfg.TIME_IT
@@ -44,21 +38,16 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
     return pred_boxes[keep], scores[keep], inds[keep], keep
 
 class Hierarchical_Descriptive_Model(HDN_base):
-    def __init__(self,nhidden, n_object_cats, n_predicate_cats, n_vocab, voc_sign, 
-                 max_word_length, MPS_iter, use_language_loss, object_loss_weight, 
+    def __init__(self, nhidden, n_object_cats, n_predicate_cats, MPS_iter, object_loss_weight,
                  predicate_loss_weight, 
                  dropout=False, 
-                 use_kmeans_anchors=False, 
-                 gate_width=128, 
-                 nhidden_caption=256, 
-                 nembedding = 256,
-                 rnn_type='LSTM_normal', 
-                 rnn_droptout=0.0, rnn_bias=False, 
-                 use_region_reg=False, use_kernel=False):
+                 use_kmeans_anchors=True,
+                 gate_width=128,
+                 use_region_reg=False,
+                 use_kernel=False):
     
-        super(Hierarchical_Descriptive_Model, self).__init__(nhidden, n_object_cats, n_predicate_cats, n_vocab, voc_sign, 
-                 max_word_length, MPS_iter, use_language_loss, object_loss_weight, predicate_loss_weight, 
-                 dropout, use_kmeans_anchors, nhidden_caption, nembedding, rnn_type, use_region_reg)
+        super(Hierarchical_Descriptive_Model, self).__init__(nhidden, n_object_cats, n_predicate_cats,  MPS_iter, object_loss_weight,
+                 predicate_loss_weight, dropout, use_region_reg)
 
         self.rpn = RPN(use_kmeans_anchors)
         self.roi_pool_object = RoIPool(7, 7, 1.0/16)
@@ -86,30 +75,13 @@ class Hierarchical_Descriptive_Model(HDN_base):
         else:
             self.bbox_region = None
 
-        self.objectiveness = FC(nhidden, 2, relu=False)
-
-        if use_language_loss:
-            self.caption_prediction = \
-                Language_Model(rnn_type=self.rnn_type, ntoken=self.n_vocab, nimg=self.nhidden, nhidden=self.nhidden_caption, 
-                                nembed=self.nembedding, nlayers=2, nseq=self.max_word_length, voc_sign = self.voc_sign, 
-                                bias=rnn_bias, dropout=rnn_droptout) 
-        else:
-            self.caption_prediction = Language_Model(rnn_type=self.rnn_type, ntoken=self.n_vocab, nimg=1, nhidden=1, 
-                                nembed=1, nlayers=1, nseq=1, voc_sign = self.voc_sign) # just to make the program run
-
         network.weights_normal_init(self.score_obj, 0.01)
         network.weights_normal_init(self.bbox_obj, 0.005)
         network.weights_normal_init(self.score_pred, 0.01)
-        network.weights_normal_init(self.objectiveness, 0.01)
-
-        self.objectiveness_loss = None
 
 
+    def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None, graph_generation=False):
 
-    def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None, 
-                    use_beam_search=False, graph_generation=False):
-
-        # self.timer.tic()
         features, object_rois, region_rois, scores_object, scores_relationship = self.rpn(im_data, im_info, gt_objects, gt_regions)
 
         if not self.training and gt_objects is not None:
@@ -127,21 +99,18 @@ class Hierarchical_Descriptive_Model(HDN_base):
         if self.training:
             roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
                 self.proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships, gt_regions,
-                        self.n_classes_obj, self.voc_sign, self.training, graph_generation=graph_generation)
+                        self.n_classes_obj, self.training, graph_generation=graph_generation)
         else:
             roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
 	            self.proposal_target_layer_test(object_rois, region_rois,
 	                                            scores_object, scores_relationship, graph_generation=False)
 
-        # self.timer.tic()
         object_rois = roi_data_object[0]
         phrase_rois = roi_data_predicate[0]
         region_rois = roi_data_region[0]
 
         # roi pool
         pooled_object_features = self.roi_pool_object(features, object_rois)
-        #print 'pool5_object.std'
-        #print pooled_object_features.data.std()
         pooled_object_features = pooled_object_features.view(pooled_object_features.size()[0], -1)
         pooled_object_features = self.fc6_obj(pooled_object_features)
         if self.dropout:
@@ -177,11 +146,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
         if self.use_region_reg:
             bbox_region = self.bbox_region(F.relu(pooled_region_features))
 
-        if TIME_IT:
-            torch.cuda.synchronize()
-            print '\t[Pre-MPS]:  %.3fs' % self.timer.toc(average=False)
-
-        self.timer.tic()
         # hierarchical message passing structure
         if self.MPS_iter < 0:
             if self.training:
@@ -193,16 +157,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
             pooled_object_features, pooled_phrase_features, pooled_region_features = \
                 self.mps(pooled_object_features, pooled_phrase_features, pooled_region_features, \
                             mat_object, mat_phrase, mat_region)
-        if TIME_IT:
-            torch.cuda.synchronize()
-            print '\t[Passing]:  %.3fs' % self.timer.toc(average=False)
-
-            
-        # print 'post_mps_object.std', pooled_object_features.data.std()
-        # print 'post_mps_phrase.std', pooled_phrase_features.data.std()
-        # print 'post_mps_region.std', pooled_region_features.data.std()
-
-        self.timer.tic()
 
         pooled_object_features = F.relu(pooled_object_features)
         pooled_phrase_features = F.relu(pooled_phrase_features)
@@ -217,51 +171,21 @@ class Hierarchical_Descriptive_Model(HDN_base):
         if not self.use_region_reg:
             bbox_region = Variable(torch.zeros(pooled_region_features.size(0), 4).cuda())
 
-
-        cls_objectiveness_region = self.objectiveness(pooled_region_features)
-
         if self.training:
             self.cross_entropy_object, self.loss_obj_box = self.build_loss_object(cls_score_object, bbox_object, roi_data_object)
             self.cross_entropy_predicate, self.tp_pred, self.tf_pred, self.fg_cnt_pred, self.bg_cnt_pred = \
                     self.build_loss_cls(cls_score_predicate, roi_data_predicate[1])
-            # print 'accuracy: %2.2f%%' % (((self.tp_pred + self.tf_pred) / float(self.fg_cnt_pred + self.bg_cnt_pred)) * 100)
-            # self.timer.tic()
-            if self.use_language_loss:
-                self.region_caption_loss = self.caption_prediction(pooled_region_features, roi_data_region[1])
-            else:
-                self.region_caption_loss = Variable(torch.zeros(1).cuda())
 
             if self.use_region_reg:
                 self.loss_region_box = self.build_loss_bbox(bbox_region, roi_data_region)
-            # print '\t[Caption]:   %.3fs' % self.timer.toc(average=False)
-            region_caption = None
-            self.objectiveness_loss = self.build_loss_objectiveness(cls_objectiveness_region, \
-                                        roi_data_region[3][:, 0].ne(0).type(torch.cuda.LongTensor))
-        else:
-            # assert False, 'Have not implemented!\n'
-            if self.use_language_loss:
-                # region_caption, caption_logprobs = self.caption_prediction.beamsearch(pooled_region_features, 10)
-                if use_beam_search:
-                    search_func = self.caption_prediction.beamsearch
-                else:
-                    search_func = self.caption_prediction.baseline_search
-                region_caption = search_func(pooled_region_features, 5)
-                # pdb.set_trace()
-            else:
-                region_caption = None
-                caption_logprobs = None 
-
-        caption_logprobs = F.log_softmax(cls_objectiveness_region)[:, 1].squeeze().cpu().data
 
         return (cls_prob_object, bbox_object, object_rois), \
                 (cls_prob_predicate, mat_phrase), \
-                (region_caption, bbox_region, region_rois, caption_logprobs)
-
-    
+               (bbox_region, region_rois)
 
     @staticmethod
     def proposal_target_layer(object_rois, relationship_rois, gt_objects, gt_relationships,
-            gt_box_relationship, n_classes_obj, voc_sign, is_training=False, graph_generation=False):
+            gt_box_relationship, n_classes_obj, is_training=False, graph_generation=False):
 
         """
         ----------
@@ -289,10 +213,10 @@ class Hierarchical_Descriptive_Model(HDN_base):
         relationship_rois = relationship_rois.data.cpu().numpy()
 
         object_labels, object_rois, bbox_targets, bbox_inside_weights, bbox_outside_weights, mat_object, \
-            phrase_label, phrase_rois, mat_phrase, region_seq, relationship_rois, \
+            phrase_label, phrase_rois, mat_phrase, relationship_rois, \
             bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region, mat_region= \
             proposal_target_layer_py(object_rois, relationship_rois, gt_objects, gt_relationships,
-                gt_box_relationship, n_classes_obj, voc_sign, is_training, graph_generation=graph_generation)
+                gt_box_relationship, n_classes_obj, is_training, graph_generation=graph_generation)
 
         # print labels.shape, bbox_targets.shape, bbox_inside_weights.shape
         if is_training:
@@ -301,7 +225,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
             bbox_inside_weights = network.np_to_variable(bbox_inside_weights, is_cuda=True)
             bbox_outside_weights = network.np_to_variable(bbox_outside_weights, is_cuda=True)
             phrase_label = network.np_to_variable(phrase_label, is_cuda=True, dtype=torch.LongTensor)
-            region_seq = network.np_to_variable(region_seq, is_cuda=True, dtype=torch.LongTensor)
             bbox_targets_region = network.np_to_variable(bbox_targets_region, is_cuda=True)
             bbox_inside_weights_region = network.np_to_variable(bbox_inside_weights_region, is_cuda=True)
             bbox_outside_weights_region = network.np_to_variable(bbox_outside_weights_region, is_cuda=True)
@@ -312,7 +235,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
         return (object_rois, object_labels, bbox_targets, bbox_inside_weights, bbox_outside_weights), \
                 (phrase_rois, phrase_label), \
-                (relationship_rois, region_seq, bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region), \
+                (relationship_rois, bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region), \
                 mat_object, mat_phrase, mat_region
 
 
@@ -324,8 +247,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
         object_rois, pair_rois, relationship_rois, mat_object, mat_phrase, mat_region = \
             self.setup_pair(object_rois, relationship_rois, scores_object, scores_relationship, graph_generation=graph_generation)
-        object_labels, bbox_targets, bbox_inside_weights, bbox_outside_weights, pair_labels, region_labels, \
-        bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region = [None] * 9
+        object_labels, bbox_targets, bbox_inside_weights, bbox_outside_weights, pair_labels, \
+        bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region = [None] * 8
 
         # object_rois = network.np_to_variable(object_rois, is_cuda=True)
         pair_rois = network.np_to_variable(pair_rois, is_cuda=True)
@@ -556,7 +479,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
         if bg_cnt > 0:
             self.tf_reg = torch.sum(predict[fg_cnt:].eq(labels.data[fg_cnt:]))
         else:
-            self.tp_reg = 0.
+            self.tf_reg = 0.
         self.fg_cnt_reg = fg_cnt
         self.bg_cnt_reg = bg_cnt
         return loss_objectiveness

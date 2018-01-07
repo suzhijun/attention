@@ -43,41 +43,34 @@ class HDN_base(nn.Module):
     MAX_SIZE = 1000
     MPS_iter_range = range(1, cfg.TRAIN.MAX_MPS_ITER_NUM + 1)
 
-    def __init__(self, nhidden, n_object_cats, n_predicate_cats, n_vocab, voc_sign, 
-                 max_word_length, MPS_iter, use_language_loss, object_loss_weight, 
-                 predicate_loss_weight, dropout, 
-                 use_kmeans_anchors, 
-                 nhidden_caption, 
-                 nembedding,
-                 rnn_type, use_region_reg=False):
+    def __init__(self, nhidden, n_object_cats, n_predicate_cats,  MPS_iter, object_loss_weight,
+                 predicate_loss_weight, dropout, use_region_reg=False):
 
         super(HDN_base, self).__init__()
         assert n_object_cats is not None and n_predicate_cats is not None
-        if rnn_type == 'LSTM_normal':
-            nembedding = nhidden
         if MPS_iter < 0:
             print 'Use random interation from 1 to 5'
 
         self.n_classes_obj = n_object_cats
         self.n_classes_pred = n_predicate_cats
-        self.max_word_length = max_word_length
+        # self.max_word_length = max_word_length
         self.MPS_iter = MPS_iter
-        self.use_language_loss = use_language_loss
+        # self.use_language_loss = use_language_loss
         self.object_loss_weight = object_loss_weight
         self.predicate_loss_weight = predicate_loss_weight
         self.dropout = dropout
         self.nhidden = nhidden
-        self.nhidden_caption = nhidden_caption
-        self.nembedding = nembedding
-        self.rnn_type = rnn_type
-        self.voc_sign = voc_sign
-        self.n_vocab = n_vocab
+        # self.nhidden_caption = nhidden_caption
+        # self.nembedding = nembedding
+        # self.rnn_type = rnn_type
+        # self.voc_sign = voc_sign
+        # self.n_vocab = n_vocab
         self.use_region_reg = use_region_reg
 
         # loss
         self.cross_entropy_object = None
         self.cross_entropy_predicate = None
-        self.region_caption_loss = None
+        # self.region_caption_loss = None
         self.loss_obj_box = None
         self.loss_region_box = Variable(torch.zeros(1)).cuda()
 
@@ -108,7 +101,7 @@ class HDN_base(nn.Module):
     @property
     def loss(self):
         return self.cross_entropy_object + self.loss_obj_box + \
-               self.cross_entropy_predicate * 1 + self.region_caption_loss + self.loss_region_box
+               self.cross_entropy_predicate * 1 + self.loss_region_box
     
 
 
@@ -134,14 +127,8 @@ class HDN_base(nn.Module):
         self.fg_cnt = fg_cnt
         self.bg_cnt = bg_cnt
 
-        # print '[object]:'
-        # if predict.sum() > 0:
-        # print predict
-
         # print 'accuracy: %2.2f%%' % (((self.tp + self.tf) / float(fg_cnt + bg_cnt)) * 100)
-        # print predict
         cross_entropy = F.cross_entropy(cls_score, label, weight=ce_weights)
-        # print cross_entropy
 
         # bounding box regression L1 loss
         bbox_targets, bbox_inside_weights, bbox_outside_weights = roi_data[2:]
@@ -151,15 +138,13 @@ class HDN_base(nn.Module):
         bbox_targets = torch.mul(bbox_targets, bbox_inside_weights)
         bbox_pred = torch.mul(bbox_pred, bbox_inside_weights)
 
-        # a = bbox_pred.data.cpu().numpy()
         loss_box = F.smooth_l1_loss(bbox_pred, bbox_targets, size_average=False) / (fg_cnt + 1e-5)
-        # print loss_box
 
         return cross_entropy, loss_box
 
 
     def build_loss_bbox(self, bbox_pred, roi_data):
-        bbox_targets, bbox_inside_weights, bbox_outside_weights = roi_data[2:]
+        bbox_targets, bbox_inside_weights, bbox_outside_weights = roi_data[1:]
         bbox_targets = torch.mul(bbox_targets, bbox_inside_weights)
         bbox_pred = torch.mul(bbox_pred, bbox_inside_weights)
         fg_cnt = torch.sum(bbox_inside_weights[:, 0].data.ne(0)) 

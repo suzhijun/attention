@@ -21,43 +21,43 @@ def get_model_name(arguments):
 
     if arguments.use_kernel_function:
         arguments.model_name += '_with_kernel'
-    if arguments.load_RPN or arguments.resume_training:
+    if arguments.load_RPN or arguments.resume_model:
         arguments.model_name += '_alt'
     else:
         arguments.model_name += '_end2end'
     if arguments.dropout:
         arguments.model_name += '_dropout'
     arguments.model_name += '_{}'.format(arguments.dataset_option)
-    if arguments.disable_language_model:
-        arguments.model_name += '_no_caption'
-    else:
-        if arguments.rnn_type == 'LSTM_im':
-            arguments.model_name += '_H_LSTM'
-        elif arguments.rnn_type == 'LSTM_normal':
-            arguments.model_name += '_I_LSTM'
-        elif arguments.rnn_type == 'LSTM_baseline':
-            arguments.model_name += '_B_LSTM'
-        else:
-            raise Exception('Error in RNN type')
-        if arguments.caption_use_bias:
-            arguments.model_name += '_with_bias'
-        else:
-            arguments.model_name += '_no_bias'
-        if arguments.caption_use_dropout > 0:
-            arguments.model_name += '_with_dropout_{}'.format(arguments.caption_use_dropout).replace('.', '_')
-        else:
-            arguments.model_name += '_no_dropout'
-        arguments.model_name += '_nembed_{}'.format(arguments.nembedding)
-        arguments.model_name += '_nhidden_{}'.format(arguments.nhidden_caption)
+    # if arguments.disable_language_model:
+    #     arguments.model_name += '_no_caption'
+    # else:
+    #     if arguments.rnn_type == 'LSTM_im':
+    #         arguments.model_name += '_H_LSTM'
+    #     elif arguments.rnn_type == 'LSTM_normal':
+    #         arguments.model_name += '_I_LSTM'
+    #     elif arguments.rnn_type == 'LSTM_baseline':
+    #         arguments.model_name += '_B_LSTM'
+    #     else:
+    #         raise Exception('Error in RNN type')
+    #     if arguments.caption_use_bias:
+    #         arguments.model_name += '_with_bias'
+    #     else:
+    #         arguments.model_name += '_no_bias'
+    #     if arguments.caption_use_dropout > 0:
+    #         arguments.model_name += '_with_dropout_{}'.format(arguments.caption_use_dropout).replace('.', '_')
+    #     else:
+    #         arguments.model_name += '_no_dropout'
+    #     arguments.model_name += '_nembed_{}'.format(arguments.nembedding)
+    #     arguments.model_name += '_nhidden_{}'.format(arguments.nhidden_caption)
+    #
+    #     if arguments.region_bbox_reg:
+    #         arguments.model_name += '_with_region_regression'
 
-        if arguments.region_bbox_reg:
-            arguments.model_name += '_with_region_regression'
-
-    if arguments.resume_training:
+    if arguments.resume_model:
         arguments.model_name += '_resume'
 
-    if arguments.finetune_language_model:
-        arguments.model_name += '_finetune'
+    # if arguments.finetune_language_model:
+    #     arguments.model_name += '_finetune'
     if arguments.optimizer == 0:
         arguments.model_name += '_SGD'
         arguments.solver = 'SGD'
@@ -79,14 +79,14 @@ def group_features(net_):
     vgg_feature_len = len(list(net_.rpn.features.parameters()))
     rpn_feature_len = len(list(net_.rpn.parameters())) - vgg_feature_len
     rpn_features = list(net_.rpn.parameters())[vgg_feature_len:]
-    language_features = list(net_.caption_prediction.parameters())
-    language_feature_len = len(language_features)
-    hdn_features = list(net_.parameters())[(rpn_feature_len + vgg_feature_len):(-1 * language_feature_len)]
+    # language_features = list(net_.caption_prediction.parameters())
+    # language_feature_len = len(language_features)
+    hdn_features = list(net_.parameters())[(rpn_feature_len + vgg_feature_len):]
     print 'vgg feature length:', vgg_feature_len
     print 'rpn feature length:', rpn_feature_len
     print 'HDN feature length:', len(hdn_features)
-    print 'language_feature_len:', language_feature_len
-    return vgg_features_fix, vgg_features_var, rpn_features, hdn_features, language_features
+    # print 'language_feature_len:', language_feature_len
+    return vgg_features_fix, vgg_features_var, rpn_features, hdn_features
 
 
 

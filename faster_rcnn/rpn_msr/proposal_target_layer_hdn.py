@@ -31,7 +31,7 @@ DEBUG = False
 
 
 def proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships, 
-                gt_regions, n_classes_obj, voc_eos, is_training, graph_generation=False):
+                gt_regions, n_classes_obj, is_training, graph_generation=False):
 
     #     object_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
     #     region_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
@@ -77,12 +77,11 @@ def proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships
 
         object_labels, object_rois, bbox_targets, bbox_inside_weights, \
             phrase_labels, phrase_rois, \
-            region_labels, region_rois, bbox_targets_region, bbox_inside_weights_region, \
+            region_rois, bbox_targets_region, bbox_inside_weights_region, \
                 mat_object, mat_phrase, mat_region = _sample_rois(all_rois, all_rois_region, \
-                    gt_objects, gt_relationships, gt_regions, 1, n_classes_obj, voc_eos, is_training)
+                    gt_objects, gt_relationships, gt_regions, 1, n_classes_obj)
 
 
-        # assert region_labels.shape[1] == cfg.TRAIN.LANGUAGE_MAX_LENGTH
         object_labels = object_labels.reshape(-1, 1)
         bbox_targets = bbox_targets.reshape(-1, n_classes_obj * 4)
         bbox_targets_region = bbox_targets_region.reshape(-1, 4)
@@ -94,8 +93,8 @@ def proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships
     else:
         object_rois, phrase_rois, region_rois, mat_object, mat_phrase, mat_region  = \
                     _setup_connection(object_rois, region_rois, graph_generation=graph_generation)
-        object_labels, bbox_targets, bbox_inside_weights, bbox_outside_weights, phrase_labels, region_labels, \
-             bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region= [None] * 9
+        object_labels, bbox_targets, bbox_inside_weights, bbox_outside_weights, phrase_labels, \
+             bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region= [None] * 8
     # print 'region_roi', region_roi
     # print 'object_rois'
     # print object_rois
@@ -133,8 +132,7 @@ def proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships
     assert phrase_rois.shape[1] == 5
 
     return object_labels, object_rois, bbox_targets, bbox_inside_weights, bbox_outside_weights, mat_object, \
-            phrase_labels, phrase_rois, mat_phrase, \
-            region_labels, region_rois, \
+            phrase_labels, phrase_rois, mat_phrase, region_rois, \
             bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region, mat_region \
 
 
@@ -179,7 +177,7 @@ def _compute_targets(ex_rois, gt_rois, labels):
         (labels[:, np.newaxis], targets)).astype(np.float32, copy=False)
 
 
-def _sample_rois(object_rois, region_rois, gt_objects, gt_relationships, gt_regions, num_images, num_classes, voc_eos, is_training):
+def _sample_rois(object_rois, region_rois, gt_objects, gt_relationships, gt_regions, num_images, num_classes):
     """Generate a random sample of RoIs comprising foreground and background
     examples.
     """
@@ -276,8 +274,8 @@ def _sample_rois(object_rois, region_rois, gt_objects, gt_relationships, gt_regi
     phrase_rois = box_union(object_rois[sub_list, :], object_rois[obj_list, :])
 
 ### prepare region targets
-    region_labels, region_rois, mat_phrase_part, mat_region, bbox_targets_region, bbox_inside_weight_region = \
-                    _sample_regions(region_rois, phrase_rois, gt_regions, num_images, voc_eos)
+    region_rois, mat_phrase_part, mat_region, bbox_targets_region, bbox_inside_weight_region = \
+                    _sample_regions(region_rois, phrase_rois, gt_regions, num_images)
 
 
 ### prepare connection matrix
@@ -286,7 +284,7 @@ def _sample_rois(object_rois, region_rois, gt_objects, gt_relationships, gt_regi
 
     return labels, rois, bbox_targets, bbox_inside_weights, \
            phrase_labels, phrase_rois, \
-           region_labels, region_rois, bbox_targets_region, bbox_inside_weight_region, \
+           region_rois, bbox_targets_region, bbox_inside_weight_region, \
            mat_object, mat_phrase, mat_region
 
 
@@ -337,7 +335,7 @@ def box_union(box1, box2):
     return np.concatenate((np.minimum(box1[:, :3], box2[:, :3]), np.maximum(box1[:, 3:], box2[:, 3:])), 1)
 
 
-def _sample_regions(region_rois, phrase_rois, gt_regions, num_images, voc_eos):
+def _sample_regions(region_rois, phrase_rois, gt_regions, num_images):
     """Generate a random sample of RoIs comprising foreground and background
     examples.
     """
@@ -397,16 +395,16 @@ def _sample_regions(region_rois, phrase_rois, gt_regions, num_images, voc_eos):
         keep_inds = np.append(fg_inds, bg_inds)
 
     # Select sampled values from various arrays:
-    labels = np.zeros((len(keep_inds), gt_regions.shape[1] - 4), dtype=np.int64)
+    # labels = np.zeros((len(keep_inds), gt_regions.shape[1] - 4), dtype=np.int64)
     # Here we randomly select regions overlapped with proposed ROI more than 0.7
     gt_assignment = np.zeros(fg_rois_per_this_image, dtype=np.int64)
     for i in range(fg_rois_per_this_image):
         gt_assignment[i] = npr.choice(np.where(overlaps_gt[fg_inds[i]] > cfg.TRAIN.FG_THRESH_REGION)[0], size=1)
-        labels[i] = gt_regions[gt_assignment[i], 4:]
+        # labels[i] = gt_regions[gt_assignment[i], 4:]
 
     # add start label to background and padding them with <end> sign
-    labels[fg_rois_per_this_image:, 0].fill(voc_eos['start'])
-    labels[fg_rois_per_this_image:, 1:].fill(voc_eos['end'])
+    # labels[fg_rois_per_this_image:, 0].fill(voc_eos['start'])
+    # labels[fg_rois_per_this_image:, 1:].fill(voc_eos['end'])
     rois = region_rois[keep_inds]
 
     mat_region = (overlaps_phrase[keep_inds, :] > cfg.PHRASE_REGION_OVERLAP_THRESH).astype(np.int64)
@@ -428,7 +426,7 @@ def _sample_regions(region_rois, phrase_rois, gt_regions, num_images, voc_eos):
     #     bbox_inside_weights[ind, start:end] = cfg.TRAIN.BBOX_INSIDE_WEIGHTS
 
 
-    return labels, rois, mat_phrase_part, mat_region, bbox_targets, bbox_inside_weight
+    return rois, mat_phrase_part, mat_region, bbox_targets, bbox_inside_weight
 
 
 

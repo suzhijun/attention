@@ -22,7 +22,7 @@ from ..fast_rcnn.bbox_transform import bbox_transform
 
 DEBUG = False
 def anchor_target_layer(rpn_cls_score, gt_boxes, dontcare_areas, im_info, anchor_scales, 
-        anchor_ratios, _feat_stride=[16, ], is_region=False):
+        anchor_ratios, _feat_stride=[16, ], is_relationship=False):
     """
     Assign anchors to ground-truth targets. Produces anchor classification
     labels and bounding-box regression targets.
@@ -145,7 +145,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, dontcare_areas, im_info, anchor
 
     if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
         # assign bg labels first so that positive labels can clobber them
-        if is_region:
+        if is_relationship:
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP_REGION] = 0
         else:
             labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
@@ -154,7 +154,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, dontcare_areas, im_info, anchor
     labels[gt_argmax_overlaps] = 1
 
     # fg label: above threshold IOU
-    if is_region:
+    if is_relationship:
         #  print 'is_region Called'
         labels[max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP_REGION] = 1
         if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
