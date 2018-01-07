@@ -53,24 +53,16 @@ class HDN_base(nn.Module):
 
         self.n_classes_obj = n_object_cats
         self.n_classes_pred = n_predicate_cats
-        # self.max_word_length = max_word_length
         self.MPS_iter = MPS_iter
-        # self.use_language_loss = use_language_loss
         self.object_loss_weight = object_loss_weight
         self.predicate_loss_weight = predicate_loss_weight
         self.dropout = dropout
         self.nhidden = nhidden
-        # self.nhidden_caption = nhidden_caption
-        # self.nembedding = nembedding
-        # self.rnn_type = rnn_type
-        # self.voc_sign = voc_sign
-        # self.n_vocab = n_vocab
         self.use_region_reg = use_region_reg
 
         # loss
         self.cross_entropy_object = None
         self.cross_entropy_predicate = None
-        # self.region_caption_loss = None
         self.loss_obj_box = None
         self.loss_region_box = Variable(torch.zeros(1)).cuda()
 

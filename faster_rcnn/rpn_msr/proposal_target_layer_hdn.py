@@ -231,9 +231,8 @@ def _sample_rois(object_rois, region_rois, gt_objects, gt_relationships, gt_regi
     bbox_targets, bbox_inside_weights = \
         _get_bbox_regression_labels(bbox_target_data, num_classes)
 
+
 #### prepare relationships targets
-
-
     rel_per_image = int(cfg.TRAIN.BATCH_SIZE_RELATIONSHIP / num_images)
     rel_bg_num = rel_per_image
     if fg_inds.size > 0:

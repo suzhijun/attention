@@ -93,12 +93,12 @@ __C.TRAIN.MAX_MPS_ITER_NUM = 5
 
 # Fraction of minibatch that is labeled foreground (i.e. class > 0)
 __C.TRAIN.FG_FRACTION = 0.25
-__C.TRAIN.FG_FRACTION_RELATIONSHIP = 0.25
+__C.TRAIN.FG_FRACTION_RELATIONSHIP = 0.5
 __C.TRAIN.FG_FRACTION_REGION = 0.5
 
 # Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
 __C.TRAIN.FG_THRESH = 0.5
-__C.TRAIN.FG_THRESH_REGION = 0.7
+__C.TRAIN.FG_THRESH_REGION = 0.65
 
 # Overlap threshold for a ROI to be considered background (class = 0 if
 # overlap in [LO, HI))
@@ -169,10 +169,10 @@ __C.TRAIN.RPN_FG_FRACTION = 0.5
 __C.TRAIN.RPN_BATCHSIZE = 512
 # NMS threshold used on RPN proposals
 __C.TRAIN.RPN_NMS_THRESH = 0.7
-__C.TRAIN.RPN_NMS_THRESH_REGION = 0.75
+__C.TRAIN.RPN_NMS_THRESH_REGION = 0.7
 # Number of top scoring boxes to keep before apply NMS to RPN proposals
 __C.TRAIN.RPN_PRE_NMS_TOP_N = 12000
-__C.TRAIN.RPN_PRE_NMS_TOP_N_REGION = 6000
+__C.TRAIN.RPN_PRE_NMS_TOP_N_REGION = 12000
 # Number of top scoring boxes to keep after applying NMS to RPN proposals
 __C.TRAIN.RPN_POST_NMS_TOP_N = 2000
 __C.TRAIN.RPN_POST_NMS_TOP_N_REGION = 2000
@@ -228,7 +228,7 @@ __C.TEST.PROPOSAL_METHOD = 'selective_search'
 
 ## NMS threshold used on RPN proposals
 __C.TEST.RPN_NMS_THRESH = 0.45
-__C.TEST.RPN_NMS_THRESH_REGION = 0.45
+__C.TEST.RPN_NMS_THRESH_REGION = 0.6
 ## Number of top scoring boxes to keep before apply NMS to RPN proposals
 __C.TEST.RPN_PRE_NMS_TOP_N = 12000
 __C.TEST.RPN_PRE_NMS_TOP_N_REGION = 12000

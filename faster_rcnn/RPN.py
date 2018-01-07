@@ -133,7 +133,7 @@ class RPN(nn.Module):
 
 	@property
 	def loss(self):
-		return 4*self.cross_entropy_relationship + self.loss_box_relationship + 4*self.cross_entropy + self.loss_box
+		return self.cross_entropy_relationship + self.loss_box_relationship*0.5 + self.cross_entropy + self.loss_box*0.5
 
 	def forward(self, im_data, im_info, gt_objects=None, gt_box_relationship=None, dontcare_areas=None):
 		im_data = Variable(im_data.cuda())

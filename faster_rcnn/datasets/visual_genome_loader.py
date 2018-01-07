@@ -104,7 +104,7 @@ class visual_genome(data.Dataset):
 		for rel in _annotation['relationships']:
 			gt_relationships[rel['sub_id'], rel['obj_id']] = rel['predicate']
 
-		gt_boxes_relationship = self.get_gt_box_relationship(gt_boxes_object, gt_relationships)
+		gt_boxes_relationship = self.get_gt_box_relationship(gt_boxes_object.numpy(), gt_relationships.numpy())
 
 		return img, im_info, gt_boxes_object, gt_relationships, gt_boxes_relationship
 
@@ -212,15 +212,16 @@ class visual_genome(data.Dataset):
 
 
 	def get_gt_box_relationship(self, gt_boxes_object, gt_relationships):
-		index = gt_relationships.nonzero()
-		labels = gt_relationships[index[:,0],index[:,1]].float()
-		sbj = gt_boxes_object[index[:,0],:]
-		obj = gt_boxes_object[index[:,1],:]
-		x0 = torch.min(sbj[:,0], obj[:,0])
-		y0 = torch.min(sbj[:,1], obj[:,1])
-		x1 = torch.max(sbj[:,2], obj[:,2])
-		y1 = torch.max(sbj[:,3], obj[:,3])
-		return torch.stack([x0,y0,x1,y1,labels], 1)
+		index = np.where(gt_relationships>0)
+		labels = gt_relationships[index[0],index[1]]
+		sbj = gt_boxes_object[index[0],:]
+		obj = gt_boxes_object[index[1],:]
+		x0 = np.minimum(sbj[:,0], obj[:,0])
+		y0 = np.minimum(sbj[:,1], obj[:,1])
+		x1 = np.maximum(sbj[:,2], obj[:,2])
+		y1 = np.maximum(sbj[:,3], obj[:,3])
+		relationship = np.vstack([x0,y0,x1,y1,labels]).T
+		return torch.FloatTensor(np.unique(relationship, axis=0))
 
 
 	@property
