@@ -23,14 +23,14 @@ parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive 
 
 # Training parameters
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
-parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
+parser.add_argument('--max_epoch', type=int, default=6, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
 parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
 parser.add_argument('--resume_model', default=True, help='Resume model from the entire model')
-parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_normal_no_caption_SGD_best.h5', help='The model used for resuming entire training')
+parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_resume_SGD_epoch_0.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
@@ -51,7 +51,7 @@ parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Loca
 parser.add_argument('--model_name', type=str, default='HDN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
-parser.add_argument('--evaluate', default=False, help='Only use the testing mode')
+parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
 
 args = parser.parse_args()
 # Overall loss logger
@@ -114,7 +114,7 @@ def main():
 		if len(args.HDN_model) == 0:
 			raise Exception('[resume_model] not specified')
 		network.load_net(args.HDN_model, net)
-		network.load_net(args.RPN_model, net.rpn)
+		# network.load_net(args.RPN_model, net.rpn)
 		args.train_all = True
 		optimizer_select = 2
 
@@ -161,7 +161,7 @@ def main():
 			network.save_net(save_name, net)
 			print('save model: {}'.format(save_name))
 
-			recall = test(test_loader, net, top_Ns)
+			recall = test(test_loader, target_net, top_Ns)
 
 			if np.all(recall > best_recall):
 				best_recall = recall
@@ -295,10 +295,9 @@ def test(test_loader, net, top_Ns):
 	net.eval()
 	# For efficiency inference
 	# languge_state = net.use_language_loss
-	region_reg_state = net.use_region_reg
-	net.use_language_loss = False
-	net.use_region_reg = False
-
+	# region_reg_state = net.use_region_reg
+	# net.use_language_loss = False
+	net.use_region_reg = True
 
 	rel_cnt = 0.
 	rel_cnt_correct = np.zeros(len(top_Ns))

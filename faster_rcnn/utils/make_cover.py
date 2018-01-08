@@ -125,7 +125,7 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
     score_rel = scores_relationship[relationship_id.cpu().numpy()]
 
     score_cover = score_sbj*score_obj*score_rel
-    score_cover = torch.FloatTensor(score_cover).cuda()
+    score_cover = torch.FloatTensor(score_cover.reshape(-1)).cuda()
     if TIME_IT:
         torch.cuda.synchronize()
         print('\t[select & score]: %.3fs' % timer.toc(average=False))
@@ -164,8 +164,7 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
     rel_keep_ind = keep_ind.view(-1, 1)
     rel_keep_ind = rel_keep_ind.expand(rel_keep_ind.size()[0], 5)
     # mask select left pairs
-    rel_proposals = torch.masked_select(rel_proposals, rel_keep_ind)
-    rel_proposals = rel_proposals.view(-1, 5)
+    rel_proposals = torch.masked_select(rel_proposals, rel_keep_ind).view(-1, 5)
 
     score_cover = torch.masked_select(score_cover, keep_ind)
     score_ind = score_cover.unsqueeze(0).sort(dim=1, descending=True)[1].squeeze(0)[:topN_covers]
