@@ -80,8 +80,8 @@ def test(test_loader, target_net):
 		correct_cnt_t, total_cnt_t = np.array([0, 0]), np.array([0, 0])
 		# Forward pass
 
-		object_rois, relationship_rois, scores_object, scores_relationship = target_net(im_data, im_info.numpy(), gt_objects.numpy(),
-		                                            gt_boxes_relationship.numpy())[1:]
+		object_rois, relationship_rois, scores_object, scores_relationship = target_net(im_data, im_info.numpy(), gt_objects.numpy()[0],
+		                                            gt_boxes_relationship.numpy()[0])[1:]
 
 		# TODO: add rules
 
@@ -104,16 +104,16 @@ def test(test_loader, target_net):
 		#
 		box_num[0] += object_rois.size(0)
 		box_num[1] += relationship_rois.size(0)
-		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects[0].numpy(), 300, thresh=0.5)
-		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship[0].numpy(), 300, thresh=0.55)
+		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects[0].numpy(), 256, thresh=0.5)
+		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship[0].numpy(), 256, thresh=0.6)
 		correct_cnt += correct_cnt_t
 		total_cnt += total_cnt_t
 		batch_time.update(time.time()-end)
 		end = time.time()
 		if (i+1)%100 == 0 and i > 0:
 			print('[{0}/{10}]  Time: {1:2.3f}s/img).'
-			      '\t[object] Avg: {2:2.2f} Boxes/im, Top-300 recall: {3:2.3f} ({4:d}/{5:d})'
-			      '\t[relationship] Avg: {6:2.2f} Boxes/im, Top-300 recall: {7:2.3f} ({8:d}/{9:d})'.format(
+			      '\t[object] Avg: {2:2.2f} Boxes/im, Top-256 recall: {3:2.3f} ({4:d}/{5:d})'
+			      '\t[relationship] Avg: {6:2.2f} Boxes/im, Top-256 recall: {7:2.3f} ({8:d}/{9:d})'.format(
 				i+1, batch_time.avg,
 				box_num[0]/float(i+1), correct_cnt[0]/float(total_cnt[0])*100, correct_cnt[0], total_cnt[0],
 				box_num[1]/float(i+1), correct_cnt[1]/float(total_cnt[1])*100, correct_cnt[1], total_cnt[1],

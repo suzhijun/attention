@@ -102,14 +102,14 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 		self.timer.tic()
-		if self.training:
-			roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
-				self.proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships, gt_regions,
-						self.n_classes_obj, self.training, graph_generation=graph_generation)
-		else:
-			roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
-				self.proposal_target_layer_test(object_rois, region_rois,
-												scores_object, scores_relationship, graph_generation=graph_generation)
+		# if self.training:
+		roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
+			self.proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships, gt_regions,
+					self.n_classes_obj, self.training, graph_generation=graph_generation)
+		# else:
+		# roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
+		# 	self.proposal_target_layer_test(object_rois, region_rois,
+		# 									scores_object, scores_relationship, graph_generation=graph_generation)
 
 		if TIME_IT:
 			torch.cuda.synchronize()

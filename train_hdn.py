@@ -30,7 +30,7 @@ parser.add_argument('--step_size', type=int, default = 2, help='Step size for re
 
 # structure settings
 parser.add_argument('--resume_model', default=True, help='Resume model from the entire model')
-parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_resume_SGD_epoch_0.h5', help='The model used for resuming entire training')
+parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_resume_SGD_init.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
@@ -294,9 +294,6 @@ def test(test_loader, net, top_Ns):
 	print '========== Testing ======='
 	net.eval()
 	# For efficiency inference
-	# languge_state = net.use_language_loss
-	# region_reg_state = net.use_region_reg
-	# net.use_language_loss = False
 	net.use_region_reg = True
 
 	rel_cnt = 0.

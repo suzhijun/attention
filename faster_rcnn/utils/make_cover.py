@@ -48,8 +48,8 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
                      topN_obj=128, topN_rel=128, obj_rel_thresh=0.8, max_objects=9, topN_covers=4096,
                      cover_thresh=0.5):
     '''
-    :param object_rois: pytorch cuda
-    :param relationship_rois: torch cuda
+    :param object_rois: pytorch cuda Variable
+    :param relationship_rois: torch cuda Variable
     :param thresh: float
     :return: subject_id, object_id, rel_proposals: torch cuda
     '''
@@ -175,5 +175,5 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
         torch.cuda.synchronize()
         print('\t[select overlap]: %.3fs' % timer.toc(average=False))
 
-    return subject_id, object_id, rel_proposals
+    return subject_id, object_id, Variable(rel_proposals)
 

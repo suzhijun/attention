@@ -330,6 +330,7 @@ def _setup_connection(object_rois, region_rois, graph_generation=False):
 
     return rois, phrase_rois, region_rois, mat_object, mat_phrase, mat_region
 
+
 def box_union(box1, box2):
     return np.concatenate((np.minimum(box1[:, :3], box2[:, :3]), np.maximum(box1[:, 3:], box2[:, 3:])), 1)
 
