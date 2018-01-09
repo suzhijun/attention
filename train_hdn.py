@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive 
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
 parser.add_argument('--max_epoch', type=int, default=6, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
-parser.add_argument('--log_interval', type=int, default=100, help='Interval for Logging')
+parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
@@ -54,7 +54,7 @@ parser.add_argument('--nesterov', action='store_true', help='Set to use the nest
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
 parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
 parser.add_argument('--normal_test', default=True, help='Only use the normal testing mode')
-parser.add_argument('--use_rpn_scores', default=True, help='Use rpn scores to help to predict')
+parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
 
 args = parser.parse_args()
 # Overall loss logger
