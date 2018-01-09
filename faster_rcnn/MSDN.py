@@ -218,7 +218,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			torch.cuda.synchronize()
 			print '\t[Loss]:  %.3fs'%self.timer.toc(average=False)
 
-		return (cls_prob_object, bbox_object, object_rois), \
+		return (cls_prob_object, bbox_object, object_rois, scores_object), \
 				(cls_prob_predicate, mat_phrase), \
 			   (bbox_region, region_rois)
 
@@ -347,8 +347,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 	def interpret_HDN(self, cls_prob, bbox_pred, rois, cls_prob_predicate,
-						mat_phrase, im_info, nms=True, clip=True, min_score=0.0,
-						top_N=100, use_gt_boxes=False):
+						mat_phrase, rpn_scores_object, im_info, nms=True, clip=True, min_score=0.0,
+						top_N=100, use_gt_boxes=False, use_rpn_scores=False):
 		scores, inds = cls_prob[:, 1:].data.max(1)
 		inds += 1
 		scores, inds = scores.cpu().numpy(), inds.cpu().numpy()
@@ -398,8 +398,14 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				obj_list = np.append(obj_list, obj_id[0])
 				pred_list = np.append(pred_list, i)
 
-		total_scores = predicate_scores.squeeze()[pred_list] \
-						* scores[sub_list].squeeze() * scores[obj_list].squeeze()
+		if use_rpn_scores:
+			total_scores = predicate_scores.squeeze()[pred_list] \
+							* scores[sub_list].squeeze() * scores[obj_list].squeeze() \
+						   * rpn_scores_object[sub_list].squeeze() * rpn_scores_object[obj_list].squeeze()
+		else:
+			total_scores = predicate_scores.squeeze()[pred_list] \
+						   * scores[sub_list].squeeze() * scores[obj_list].squeeze()
+
 		top_N_list = total_scores.argsort()[::-1][:top_N]
 		predicate_inds = predicate_inds.squeeze()[pred_list[top_N_list]]
 
@@ -485,14 +491,14 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		object_result, predicate_result, region_result = \
 			self(im_data, im_info, gt_boxes_object, gt_regions=gt_boxes_regions, graph_generation=True, normal_test=normal_test)
 
-		cls_prob_object, bbox_object, object_rois = object_result[:3]
+		cls_prob_object, bbox_object, object_rois, rpn_scores_object = object_result[:3]
 		cls_prob_predicate, mat_phrase = predicate_result[:2]
 
 		# interpret the model output
 		obj_boxes, obj_scores, obj_inds, subject_inds, object_inds, \
 			subject_boxes, object_boxes, predicate_inds = \
 				self.interpret_HDN(cls_prob_object, bbox_object, object_rois,
-							cls_prob_predicate, mat_phrase, im_info,
+							cls_prob_predicate, mat_phrase, rpn_scores_object, im_info,
 							nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes)
 
 		gt_objects[:, :4] /= im_info[0][2]
