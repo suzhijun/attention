@@ -30,8 +30,8 @@ parser.add_argument('--step_size', type=int, default = 2, help='Step size for re
 
 # structure settings
 parser.add_argument('--resume_model', default=True, help='Resume model from the entire model')
-parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_resume_SGD_init.h5', help='The model used for resuming entire training')
-parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
+parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_resume_SGD_best.h5', help='The model used for resuming entire training')
+parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
@@ -81,7 +81,7 @@ def main():
 	print("Done.")
 
 	train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
-	test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
+	test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
 
 	net = Hierarchical_Descriptive_Model(nhidden=args.mps_feature_len,
 				 n_object_cats=train_set.num_object_classes,
@@ -188,7 +188,6 @@ def main():
 							vgg_features_var, rpn_features, hdn_features)
 
 
-
 def train(train_loader, target_net, optimizer, epoch):
 	global args
 	# Overall loss logger
@@ -284,7 +283,6 @@ def train(train_loader, target_net, optimizer, epoch):
 			# logging to tensor board
 			# log_value('FRCNN loss', overall_train_loss.avg, overall_train_loss.count)
 			# log_value('RPN_loss loss', overall_train_rpn_loss.avg, overall_train_rpn_loss.count)
-			# log_value('caption loss', overall_train_region_caption_loss.avg, overall_train_region_caption_loss.count)
 
 
 def test(test_loader, net, top_Ns):
@@ -305,7 +303,7 @@ def test(test_loader, net, top_Ns):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0],
-			top_Ns = top_Ns, nms=True)
+			top_Ns = top_Ns, nms=True, normal_test=False)
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t
 		batch_time.update(time.time() - end)
@@ -317,9 +315,6 @@ def test(test_loader, net, top_Ns):
 
 	recall = rel_cnt_correct / rel_cnt
 	print '====== Done Testing ===='
-	# Restore the related states
-	# net.use_language_loss = languge_state
-	# net.use_region_reg = region_reg_state
 
 	return recall
 

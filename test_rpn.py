@@ -105,7 +105,7 @@ def test(test_loader, target_net):
 		box_num[0] += object_rois.size(0)
 		box_num[1] += relationship_rois.size(0)
 		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects[0].numpy(), 256, thresh=0.5)
-		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship[0].numpy(), 256, thresh=0.6)
+		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship[0].numpy(), 256, thresh=0.5)
 		correct_cnt += correct_cnt_t
 		total_cnt += total_cnt_t
 		batch_time.update(time.time()-end)

@@ -80,7 +80,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		network.weights_normal_init(self.score_pred, 0.01)
 
 
-	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None, graph_generation=False):
+	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None, graph_generation=False, normal_test=True):
 
 		self.timer.tic()
 		features, object_rois, region_rois, scores_object, scores_relationship = self.rpn(im_data, im_info, gt_objects, gt_regions)
@@ -102,14 +102,14 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 		self.timer.tic()
-		# if self.training:
-		roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
-			self.proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships, gt_regions,
-					self.n_classes_obj, self.training, graph_generation=graph_generation)
-		# else:
-		# roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
-		# 	self.proposal_target_layer_test(object_rois, region_rois,
-		# 									scores_object, scores_relationship, graph_generation=graph_generation)
+		if self.training or normal_test:
+			roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
+				self.proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships, gt_regions,
+						self.n_classes_obj, self.training, graph_generation=graph_generation)
+		else:
+			roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
+				self.proposal_target_layer_test(object_rois, region_rois,
+												scores_object, scores_relationship, graph_generation=graph_generation)
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -312,7 +312,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			topN_obj=cfg.TEST.MPN_BBOX_NUM, topN_rel=cfg.TEST.MPN_REGION_NUM, obj_rel_thresh=cfg.TEST.MPN_OBJ_REL_THRESH,
 			max_objects=cfg.TEST.MPN_MAX_OBJECTS, topN_covers=cfg.TEST.MPN_COVER_NUM, cover_thresh=cfg.TEST.MPN_MAKE_COVER_THRESH)
 
-		subject_inds, object_inds, pair_rois = subject_inds.cpu().numpy(), object_inds.cpu().numpy(), pair_rois.cpu().numpy()
+		subject_inds, object_inds, pair_rois = subject_inds.cpu().numpy(), object_inds.cpu().numpy(), pair_rois.data.cpu().numpy()
 
 		subject_inds, object_inds = np.append(subject_inds, object_inds), np.append(object_inds, subject_inds)
 		pair_rois = np.vstack((pair_rois, pair_rois))
@@ -469,7 +469,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 	def evaluate(self, im_data, im_info, gt_objects, gt_relationships, gt_regions,
-		thr=0.5, nms=False, top_Ns = [100], use_gt_boxes=False, use_gt_regions=False, only_predicate=False):
+		thr=0.5, nms=False, top_Ns = [100], use_gt_boxes=False, use_gt_regions=False, only_predicate=False, normal_test=True):
 
 		if use_gt_boxes:
 			gt_boxes_object = gt_objects[:, :4] * im_info[2]
@@ -483,7 +483,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			gt_boxes_regions = None
 
 		object_result, predicate_result, region_result = \
-			self(im_data, im_info, gt_boxes_object, gt_regions=gt_boxes_regions, graph_generation=True)
+			self(im_data, im_info, gt_boxes_object, gt_regions=gt_boxes_regions, graph_generation=True, normal_test=normal_test)
 
 		cls_prob_object, bbox_object, object_rois = object_result[:3]
 		cls_prob_predicate, mat_phrase = predicate_result[:2]

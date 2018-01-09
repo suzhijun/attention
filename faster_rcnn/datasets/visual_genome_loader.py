@@ -221,7 +221,8 @@ class visual_genome(data.Dataset):
 		x1 = np.maximum(sbj[:,2], obj[:,2])
 		y1 = np.maximum(sbj[:,3], obj[:,3])
 		relationship = np.vstack([x0,y0,x1,y1,labels]).T
-		return torch.FloatTensor(np.unique(relationship, axis=0))
+		return torch.FloatTensor(relationship)
+		# return torch.FloatTensor(np.unique(relationship, axis=0))
 
 
 	@property

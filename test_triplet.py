@@ -49,7 +49,7 @@ def main():
 	print "Done."
 
 	# train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
-	test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
+	test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
 	net = RPN(args.use_kmeans_anchors)
 	network.load_net('./output/RPN/RPN_relationship_best_kmeans.h5', net)
 	# network.set_trainable(net.features, requires_grad=False)
@@ -100,7 +100,7 @@ def test(test_loader, target_net):
 		# subject_id, object_id, relationship_cover: Variable
 		subject_id, object_id, relationship_cover = compare_rel_rois(
 			object_rois, relationship_rois, scores_object, scores_relationship,
-			topN_obj=256, topN_rel=256, obj_rel_thresh=0.7, max_objects=9, topN_covers=1024, cover_thresh=0.5)
+			topN_obj=64, topN_rel=64, obj_rel_thresh=0.5, max_objects=15, topN_covers=1024, cover_thresh=0.4)
 
 		# print('relationship_cover size', relationship_cover.size())
 		# unique_obj = np.unique(np.append(subject_id.cpu().numpy(), object_id.cpu().numpy()))
@@ -159,16 +159,16 @@ def test(test_loader, target_net):
 		batch_time.update(time.time()-end)
 		end = time.time()
 		if (i+1)%100 == 0 and i > 0:
-			print('[{0}/{10}]  Time: {1:2.3f}s/img).'
-				  '\t[object] Avg: {2:2.2f} Boxes/im, Top-2000 recall: {3:2.3f} ({4:d}/{5:d})'
-				  '\t[relationship] Avg: {6:2.2f} Boxes/im, Top-500 recall: {7:2.3f} ({8:d}/{9:d})'.format(
+			print('([{0}/{10}]  Time: {1:2.3f}s/img).\n'
+				  '[object] Avg: {2:2.2f} Boxes/im, Top-256 recall: {3:2.3f} ({4:d}/{5:d})\n'
+				  '[relationship] Avg: {6:2.2f} Boxes/im, Top-256 recall: {7:2.3f} ({8:d}/{9:d})'.format(
 				i+1, batch_time.avg,
 				box_num[0]/float(i+1), correct_cnt[0]/float(total_cnt[0])*100, correct_cnt[0], total_cnt[0],
 				box_num[1]/float(i+1), correct_cnt[1]/float(total_cnt[1])*100, correct_cnt[1], total_cnt[1],
 				len(test_loader)))
-			print('relationship_cover number: {0}' 
-				  '\tcover vs gt_relationship_boxes average recall: {1:.3f}'
-				  '\tcover & sub & obj vs gt_relationship_boxes average recall: {2:.3f}').format(
+			print('[relationship_cover number]: {0}\n'
+				  '[cover vs gt_relationship_boxes average recall]: {1:.3f}\n'
+				  '[cover & sub & obj vs gt_relationship_boxes average recall]: {2:.3f}').format(
 				relationship_cover.size()[0], cover_cnt/float(total_cnt[1])*100, cover_gt_cnt/float(total_cnt[1])*100)
 			print('average fg_cover: {0:.2f}'
 				  '\taverage fg_object: {1:.2f}'
