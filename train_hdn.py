@@ -53,7 +53,8 @@ parser.add_argument('--model_name', type=str, default='HDN', help='The name for 
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
 parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
-parser.add_argument('--normal_test', default=False, help='Only use the testing mode')
+parser.add_argument('--normal_test', default=True, help='Only use the normal testing mode')
+parser.add_argument('--use_rpn_scores', default=True, help='Use rpn scores to help to predict')
 
 args = parser.parse_args()
 # Overall loss logger
@@ -308,12 +309,12 @@ def test(test_loader, net, top_Ns, normal_test):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0],
-			top_Ns = top_Ns, nms=True, normal_test=normal_test)
+			top_Ns = top_Ns, nms=True, normal_test=normal_test, use_rpn_scores=args.use_rpn_scores)
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t
 		batch_time.update(time.time() - end)
 		end = time.time()
-		if (i + 1) % 500 == 0 and i > 0:
+		if (i + 1) % 100 == 0 and i > 0:
 			for idx, top_N in enumerate(top_Ns):
 				print '[%d/%d][Evaluation] Top-%d Recall: %2.3f%%' % (
 					i+1, len(test_loader), top_N, rel_cnt_correct[idx] / float(rel_cnt) * 100)

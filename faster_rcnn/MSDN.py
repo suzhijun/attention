@@ -417,65 +417,65 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		return pred_boxes, scores, inds, subject_inds, object_inds, subject_boxes, object_boxes, predicate_inds
 
 
-	def caption(self, im_path, gt_objects=None, gt_regions=None, thr=0.0, nms=False, top_N=100, clip=True, use_beam_search=False):
-			image = cv2.imread(im_path)
-			# print 'image.shape', image.shape
-			im_data, im_scales = self.get_image_blob_noscale(image)
-			# print 'im_data.shape', im_data.shape
-			# print 'im_scales', im_scales
-			if gt_objects is not None:
-				gt_objects[:, :4] = gt_objects[:, :4] * im_scales[0]
-			if gt_regions is not None:
-				gt_regions[:, :4] = gt_regions[:, :4] * im_scales[0]
-
-			im_info = np.array(
-				[[im_data.shape[1], im_data.shape[2], im_scales[0]]],
-				dtype=np.float32)
-			# pdb.set_trace()
-			region_result = self(im_data, im_info, gt_objects, gt_regions=gt_regions, use_beam_search=use_beam_search)[2]
-			region_caption, bbox_pred, region_rois, logprobs = region_result[:]
-
-			boxes = region_rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
-			box_deltas = bbox_pred.data.cpu().numpy()
-			pred_boxes = bbox_transform_inv_hdn(boxes, box_deltas)
-			if clip:
-				pred_boxes = clip_boxes(pred_boxes, image.shape)
-
-			# print 'im_scales[0]', im_scales[0]
-			return (region_caption.numpy(), logprobs.numpy(), pred_boxes)
-
-	def describe(self, im_path, top_N=10):
-			image = cv2.imread(im_path)
-			# print 'image.shape', image.shape
-			im_data, im_scales = self.get_image_blob_noscale(image)
-			# print 'im_data.shape', im_data.shape
-			# print 'im_scales', im_scales
-
-			im_info = np.array(
-				[[im_data.shape[1], im_data.shape[2], im_scales[0]]],
-				dtype=np.float32)
-
-			object_result, predicate_result, region_result = self(im_data, im_info)
-
-			object_boxes, object_scores, object_inds, sub_assignment, obj_assignment, predicate_inds, region_assignment\
-					 = self.interpret_result(object_result[0], object_result[1], object_result[2], \
-						predicate_result[0], predicate_result[1], \
-						im_info, image.shape)
-
-			region_caption, bbox_pred, region_rois, logprobs = region_result[:]
-			boxes = region_rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
-			box_deltas = bbox_pred.data.cpu().numpy()
-			pred_boxes = bbox_transform_inv_hdn(boxes, box_deltas)
-			pred_boxes = clip_boxes(pred_boxes, image.shape)
-
-			# print 'im_scales[0]', im_scales[0]
-			return (region_caption.numpy(), logprobs.numpy(), pred_boxes, \
-					object_boxes, object_inds, object_scores, \
-				sub_assignment, obj_assignment, predicate_inds, region_assignment)
+	# def caption(self, im_path, gt_objects=None, gt_regions=None, thr=0.0, nms=False, top_N=100, clip=True, use_beam_search=False):
+	# 		image = cv2.imread(im_path)
+	# 		# print 'image.shape', image.shape
+	# 		im_data, im_scales = self.get_image_blob_noscale(image)
+	# 		# print 'im_data.shape', im_data.shape
+	# 		# print 'im_scales', im_scales
+	# 		if gt_objects is not None:
+	# 			gt_objects[:, :4] = gt_objects[:, :4] * im_scales[0]
+	# 		if gt_regions is not None:
+	# 			gt_regions[:, :4] = gt_regions[:, :4] * im_scales[0]
+	#
+	# 		im_info = np.array(
+	# 			[[im_data.shape[1], im_data.shape[2], im_scales[0]]],
+	# 			dtype=np.float32)
+	# 		# pdb.set_trace()
+	# 		region_result = self(im_data, im_info, gt_objects, gt_regions=gt_regions, use_beam_search=use_beam_search)[2]
+	# 		region_caption, bbox_pred, region_rois, logprobs = region_result[:]
+	#
+	# 		boxes = region_rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
+	# 		box_deltas = bbox_pred.data.cpu().numpy()
+	# 		pred_boxes = bbox_transform_inv_hdn(boxes, box_deltas)
+	# 		if clip:
+	# 			pred_boxes = clip_boxes(pred_boxes, image.shape)
+	#
+	# 		# print 'im_scales[0]', im_scales[0]
+	# 		return (region_caption.numpy(), logprobs.numpy(), pred_boxes)
+	#
+	# def describe(self, im_path, top_N=10):
+	# 		image = cv2.imread(im_path)
+	# 		# print 'image.shape', image.shape
+	# 		im_data, im_scales = self.get_image_blob_noscale(image)
+	# 		# print 'im_data.shape', im_data.shape
+	# 		# print 'im_scales', im_scales
+	#
+	# 		im_info = np.array(
+	# 			[[im_data.shape[1], im_data.shape[2], im_scales[0]]],
+	# 			dtype=np.float32)
+	#
+	# 		object_result, predicate_result, region_result = self(im_data, im_info)
+	#
+	# 		object_boxes, object_scores, object_inds, sub_assignment, obj_assignment, predicate_inds, region_assignment\
+	# 				 = self.interpret_result(object_result[0], object_result[1], object_result[2], \
+	# 					predicate_result[0], predicate_result[1], \
+	# 					im_info, image.shape)
+	#
+	# 		region_caption, bbox_pred, region_rois, logprobs = region_result[:]
+	# 		boxes = region_rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
+	# 		box_deltas = bbox_pred.data.cpu().numpy()
+	# 		pred_boxes = bbox_transform_inv_hdn(boxes, box_deltas)
+	# 		pred_boxes = clip_boxes(pred_boxes, image.shape)
+	#
+	# 		# print 'im_scales[0]', im_scales[0]
+	# 		return (region_caption.numpy(), logprobs.numpy(), pred_boxes, \
+	# 				object_boxes, object_inds, object_scores, \
+	# 			sub_assignment, obj_assignment, predicate_inds, region_assignment)
 
 
 	def evaluate(self, im_data, im_info, gt_objects, gt_relationships, gt_regions,
-		thr=0.5, nms=False, top_Ns = [100], use_gt_boxes=False, use_gt_regions=False, only_predicate=False, normal_test=True):
+		thr=0.5, nms=False, top_Ns = [100], use_gt_boxes=False, use_gt_regions=False, only_predicate=False, normal_test=True, use_rpn_scores=False):
 
 		if use_gt_boxes:
 			gt_boxes_object = gt_objects[:, :4] * im_info[2]
@@ -491,7 +491,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		object_result, predicate_result, region_result = \
 			self(im_data, im_info, gt_boxes_object, gt_regions=gt_boxes_regions, graph_generation=True, normal_test=normal_test)
 
-		cls_prob_object, bbox_object, object_rois, rpn_scores_object = object_result[:3]
+		cls_prob_object, bbox_object, object_rois, rpn_scores_object = object_result
 		cls_prob_predicate, mat_phrase = predicate_result[:2]
 
 		# interpret the model output
@@ -499,7 +499,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			subject_boxes, object_boxes, predicate_inds = \
 				self.interpret_HDN(cls_prob_object, bbox_object, object_rois,
 							cls_prob_predicate, mat_phrase, rpn_scores_object, im_info,
-							nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes)
+							nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
 
 		gt_objects[:, :4] /= im_info[0][2]
 		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships,
