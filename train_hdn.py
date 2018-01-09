@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive 
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
 parser.add_argument('--max_epoch', type=int, default=6, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
-parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
+parser.add_argument('--log_interval', type=int, default=100, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
@@ -45,6 +45,7 @@ parser.set_defaults(region_bbox_reg=True)
 parser.add_argument('--use_kernel_function', action='store_true')
 
 # Environment Settings
+parser.add_argument('--train_all', default=True, help='Train all the mode')
 parser.add_argument('--seed', type=int, default=1, help='set seed to some constant value to reproduce experiments')
 parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
 parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Location to output the model')
@@ -52,6 +53,7 @@ parser.add_argument('--model_name', type=str, default='HDN', help='The name for 
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
 parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
+parser.add_argument('--normal_test', default=False, help='Only use the testing mode')
 
 args = parser.parse_args()
 # Overall loss logger
@@ -59,8 +61,7 @@ overall_train_loss = network.AverageMeter()
 overall_train_rpn_loss = network.AverageMeter()
 
 optimizer_select = 0
-
-
+# normal_test = False
 
 def main():
 	global args, optimizer_select
@@ -91,6 +92,7 @@ def main():
 				 predicate_loss_weight=train_set.inverse_weight_predicate,
 				 dropout=args.dropout,
 				 use_kmeans_anchors=args.use_kmeans_anchors, #True
+				 gate_width = args.gate_width,
 				 use_region_reg=args.region_bbox_reg,       # True
 				 use_kernel=args.use_kernel_function)     # False
 
@@ -145,7 +147,7 @@ def main():
 
 
 	if args.evaluate:
-		recall = test(test_loader, target_net, top_Ns)
+		recall = test(test_loader, target_net, top_Ns, args.normal_test)
 		print('======= Testing Result =======')
 		for idx, top_N in enumerate(top_Ns):
 			print('[Recall@{top_N:d}] {recall:2.3f}%% (best: {best_recall:2.3f}%%)'.format(
@@ -161,7 +163,7 @@ def main():
 			network.save_net(save_name, net)
 			print('save model: {}'.format(save_name))
 
-			recall = test(test_loader, target_net, top_Ns)
+			recall = test(test_loader, target_net, top_Ns, args.normal_test)
 
 			if np.all(recall > best_recall):
 				best_recall = recall
@@ -285,11 +287,14 @@ def train(train_loader, target_net, optimizer, epoch):
 			# log_value('RPN_loss loss', overall_train_rpn_loss.avg, overall_train_rpn_loss.count)
 
 
-def test(test_loader, net, top_Ns):
+def test(test_loader, net, top_Ns, normal_test):
 
 	global args
 
-	print '========== Testing ======='
+	if normal_test:
+		print '========== Normal Testing ========'
+	else:
+		print '========== Special Testing ========'
 	net.eval()
 	# For efficiency inference
 	net.use_region_reg = True
@@ -303,7 +308,7 @@ def test(test_loader, net, top_Ns):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0],
-			top_Ns = top_Ns, nms=True, normal_test=False)
+			top_Ns = top_Ns, nms=True, normal_test=normal_test)
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t
 		batch_time.update(time.time() - end)

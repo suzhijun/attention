@@ -100,7 +100,7 @@ def test(test_loader, target_net):
 		# subject_id, object_id, relationship_cover: Variable
 		subject_id, object_id, relationship_cover = compare_rel_rois(
 			object_rois, relationship_rois, scores_object, scores_relationship,
-			topN_obj=64, topN_rel=64, obj_rel_thresh=0.5, max_objects=15, topN_covers=1024, cover_thresh=0.4)
+			topN_obj=256, topN_rel=96, obj_rel_thresh=0.6, max_objects=15, topN_covers=2048, cover_thresh=0.5)
 
 		# print('relationship_cover size', relationship_cover.size())
 		# unique_obj = np.unique(np.append(subject_id.cpu().numpy(), object_id.cpu().numpy()))
@@ -153,7 +153,7 @@ def test(test_loader, target_net):
 		box_num[0] += object_rois.size(0)
 		box_num[1] += relationship_rois.size(0)
 		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects.numpy()[0], 256, thresh=0.5)
-		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship.numpy()[0], 256, thresh=0.5)
+		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship.numpy()[0], 96, thresh=0.5)
 		correct_cnt += correct_cnt_t
 		total_cnt += total_cnt_t
 		batch_time.update(time.time()-end)
@@ -161,7 +161,7 @@ def test(test_loader, target_net):
 		if (i+1)%100 == 0 and i > 0:
 			print('([{0}/{10}]  Time: {1:2.3f}s/img).\n'
 				  '[object] Avg: {2:2.2f} Boxes/im, Top-256 recall: {3:2.3f} ({4:d}/{5:d})\n'
-				  '[relationship] Avg: {6:2.2f} Boxes/im, Top-256 recall: {7:2.3f} ({8:d}/{9:d})'.format(
+				  '[relationship] Avg: {6:2.2f} Boxes/im, Top-96 recall: {7:2.3f} ({8:d}/{9:d})'.format(
 				i+1, batch_time.avg,
 				box_num[0]/float(i+1), correct_cnt[0]/float(total_cnt[0])*100, correct_cnt[0], total_cnt[0],
 				box_num[1]/float(i+1), correct_cnt[1]/float(total_cnt[1])*100, correct_cnt[1], total_cnt[1],
