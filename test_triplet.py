@@ -43,7 +43,7 @@ def main():
 	global args
 	print "Loading training set and testing set..."
 	# train_set = visual_genome(args.dataset_option, 'train')
-	test_set = visual_genome('small', 'test')
+	test_set = visual_genome('normal', 'train')
 	# print test_set.num_object_classes
 	# print test_set.num_predicate_classes
 	print "Done."
@@ -100,7 +100,7 @@ def test(test_loader, target_net):
 		# subject_id, object_id, relationship_cover: Variable
 		subject_id, object_id, relationship_cover = compare_rel_rois(
 			object_rois, relationship_rois, scores_object, scores_relationship,
-			topN_obj=256, topN_rel=96, obj_rel_thresh=0.6, max_objects=15, topN_covers=2048, cover_thresh=0.5)
+			topN_obj=object_rois.size()[0], topN_rel=relationship_rois.size()[0], obj_rel_thresh=0.6, max_objects=15, topN_covers=2048, cover_thresh=0.6)
 
 		# print('relationship_cover size', relationship_cover.size())
 		# unique_obj = np.unique(np.append(subject_id.cpu().numpy(), object_id.cpu().numpy()))
@@ -109,9 +109,26 @@ def test(test_loader, target_net):
 
 		cover_gt_num = check_recall(relationship_cover, gt_boxes_relationship.numpy()[0], top_N=relationship_cover.size(0), thresh=0.5)
 		cover_cnt += cover_gt_num[0]
+		all_rois = object_rois.data.cpu().numpy()
+		zeros = np.zeros((gt_objects.numpy().shape[1], 1), dtype=gt_objects.numpy().dtype)
+		# add gt_obj to predict_rois
+		all_rois = np.vstack(
+			(all_rois, np.hstack((zeros, gt_objects.numpy()[0][:, :4])))
+		)
+		all_rois_phrase = relationship_cover.data.cpu().numpy()
+		zeros = np.zeros((gt_boxes_relationship.numpy().shape[1], 1), dtype=gt_boxes_relationship.numpy()[0].dtype)
+		all_rois_phrase = np.vstack(
+			(all_rois_phrase, np.hstack((zeros, gt_boxes_relationship.numpy()[0][:, :4])))
+		)
+		gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships.numpy()[0] > 0)
+		gt_rel_sub_idx, gt_rel_obj_idx = gt_rel_sub_idx + object_rois.size()[0], gt_rel_obj_idx + object_rois.size()[0]
+		subject_inds = np.append(subject_id.cpu().numpy(), gt_rel_sub_idx)
+		object_inds = np.append(object_id.cpu().numpy(), gt_rel_obj_idx)
 		cover_obj_check = check_obj_rel_recall(gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_boxes_relationship.numpy()[0],
-											 relationship_cover.data.cpu().numpy(), object_rois.data.cpu().numpy(),
-											 subject_id.cpu().numpy(), object_id.cpu().numpy(),
+											 # relationship_cover.data.cpu().numpy(), object_rois.data.cpu().numpy(),
+											   all_rois_phrase, all_rois,
+											   # subject_id.cpu().numpy(), object_id.cpu().numpy(),
+											   subject_inds, object_inds,
 											 cover_thresh=0.5, object_thresh=0.5, log=False)
 		cover_gt_cnt += cover_obj_check[0]
 		fg_cover += cover_obj_check[1]

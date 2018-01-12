@@ -58,13 +58,12 @@ class HDN_base(nn.Module):
         self.predicate_loss_weight = predicate_loss_weight
         self.dropout = dropout
         self.nhidden = nhidden
-        self.use_region_reg = use_region_reg
 
         # loss
         self.cross_entropy_object = None
         self.cross_entropy_predicate = None
         self.loss_obj_box = None
-        self.loss_region_box = Variable(torch.zeros(1)).cuda()
+        self.loss_pred_box = None
 
         self.timer = Timer()
 
@@ -77,15 +76,11 @@ class HDN_base(nn.Module):
         self.fc6_obj.fc.bias.data.copy_(vgg16.classifier[0].bias.data[:self.nhidden] * weight_multiplier)
         self.fc6_phrase.fc.weight.data.copy_(vgg16.classifier[0].weight.data[:self.nhidden] * weight_multiplier)
         self.fc6_phrase.fc.bias.data.copy_(vgg16.classifier[0].bias.data[:self.nhidden] * weight_multiplier)
-        self.fc6_region.fc.weight.data.copy_(vgg16.classifier[0].weight.data[:self.nhidden] * weight_multiplier)
-        self.fc6_region.fc.bias.data.copy_(vgg16.classifier[0].bias.data[:self.nhidden] * weight_multiplier)
 
         self.fc7_obj.fc.weight.data.copy_(vgg16.classifier[3].weight.data[:self.nhidden, :self.nhidden] * weight_multiplier)
         self.fc7_obj.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
         self.fc7_phrase.fc.weight.data.copy_(vgg16.classifier[3].weight.data[:self.nhidden, :self.nhidden] * weight_multiplier)
         self.fc7_phrase.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
-        self.fc7_region.fc.weight.data.copy_(vgg16.classifier[3].weight.data[:self.nhidden, :self.nhidden] * weight_multiplier)
-        self.fc7_region.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
         # network.weights_normal_init(self.caption_prediction, 0.01)
         print 'Done.'
 
@@ -93,31 +88,31 @@ class HDN_base(nn.Module):
     @property
     def loss(self):
         return self.cross_entropy_object + self.loss_obj_box + \
-               self.cross_entropy_predicate * 1 + self.loss_region_box
+               self.cross_entropy_predicate * 1 + 0.5 * self.loss_pred_box
     
 
-
-    def build_loss_object(self, cls_score, bbox_pred, roi_data):
+    def build_loss(self, cls_score, bbox_pred, roi_data, obj=False):
         # classification loss
         label = roi_data[1].squeeze()
         fg_cnt = torch.sum(label.data.ne(0))
         bg_cnt = label.data.numel() - fg_cnt
 
-        ce_weights = np.sqrt(self.object_loss_weight)
+        if obj:
+            ce_weights = np.sqrt(self.object_loss_weight)
+        else:
+            ce_weights = np.sqrt(self.predicate_loss_weight)
         ce_weights[0] = float(fg_cnt) / (bg_cnt + 1e-5)
         ce_weights = ce_weights.cuda()
 
         maxv, predict = cls_score.data.max(1)
         if fg_cnt > 0:
-            self.tp = torch.sum(predict[:fg_cnt].eq(label.data[:fg_cnt]))
+            tp = torch.sum(predict[:fg_cnt].eq(label.data[:fg_cnt]))
         else:
-            self.tp = 0.
+            tp = 0.
         if bg_cnt > 0:
-            self.tf = torch.sum(predict[fg_cnt:].eq(label.data[fg_cnt:]))
+            tf = torch.sum(predict[fg_cnt:].eq(label.data[fg_cnt:]))
         else:
-            self.tp = 0.
-        self.fg_cnt = fg_cnt
-        self.bg_cnt = bg_cnt
+            tf = 0.
 
         # print 'accuracy: %2.2f%%' % (((self.tp + self.tf) / float(fg_cnt + bg_cnt)) * 100)
         cross_entropy = F.cross_entropy(cls_score, label, weight=ce_weights)
@@ -132,7 +127,7 @@ class HDN_base(nn.Module):
 
         loss_box = F.smooth_l1_loss(bbox_pred, bbox_targets, size_average=False) / (fg_cnt + 1e-5)
 
-        return cross_entropy, loss_box
+        return cross_entropy, loss_box, tp, tf, fg_cnt, bg_cnt
 
 
     def build_loss_bbox(self, bbox_pred, roi_data):

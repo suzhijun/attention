@@ -6,7 +6,6 @@ import numpy as np
 import numpy.random as npr
 import argparse
 
-
 import torch
 
 from faster_rcnn import network
@@ -29,7 +28,7 @@ parser.add_argument('--log_interval', type=int, default=500, help='Interval for 
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
-parser.add_argument('--resume_model', default=True, help='Resume model from the entire model')
+parser.add_argument('--resume_model', default=False, help='Resume model from the entire model')
 parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_resume_SGD_best.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
@@ -52,9 +51,9 @@ parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Loca
 parser.add_argument('--model_name', type=str, default='HDN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
-parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
-parser.add_argument('--normal_test', default=True, help='Only use the normal testing mode')
+parser.add_argument('--evaluate', default=False, help='Only use the testing mode')
 parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
+parser.add_argument('--use_predicate_boxes', default=False, help='Check if predicate boxes match gt relationship or not')
 
 args = parser.parse_args()
 # Overall loss logger
@@ -94,7 +93,7 @@ def main():
 				 dropout=args.dropout,
 				 use_kmeans_anchors=args.use_kmeans_anchors, #True
 				 gate_width = args.gate_width,
-				 use_region_reg=args.region_bbox_reg,       # True
+				 # use_region_reg=args.region_bbox_reg,       # True
 				 use_kernel=args.use_kernel_function)     # False
 
 	# params = list(net.parameters())
@@ -148,7 +147,7 @@ def main():
 
 
 	if args.evaluate:
-		recall = test(test_loader, target_net, top_Ns, args.normal_test)
+		recall = test(test_loader, target_net, top_Ns)
 		print('======= Testing Result =======')
 		for idx, top_N in enumerate(top_Ns):
 			print('[Recall@{top_N:d}] {recall:2.3f}%% (best: {best_recall:2.3f}%%)'.format(
@@ -164,7 +163,7 @@ def main():
 			network.save_net(save_name, net)
 			print('save model: {}'.format(save_name))
 
-			recall = test(test_loader, target_net, top_Ns, args.normal_test)
+			recall = test(test_loader, target_net, top_Ns)
 
 			if np.all(recall > best_recall):
 				best_recall = recall
@@ -207,7 +206,7 @@ def train(train_loader, target_net, optimizer, epoch):
 	train_obj_box_loss = network.AverageMeter()
 	# relationship cls loss
 	train_pred_cls_loss = network.AverageMeter()
-	train_region_box_loss = network.AverageMeter()
+	train_pred_box_loss = network.AverageMeter()
 	# RPN loss
 	train_rpn_loss = network.AverageMeter()
 	# object
@@ -244,8 +243,8 @@ def train(train_loader, target_net, optimizer, epoch):
 		accuracy_pred.update(target_net.tp_pred, target_net.tf_pred, target_net.fg_cnt_pred, target_net.bg_cnt_pred)
 		# accuracy_reg.update(target_net.tp_reg, target_net.tf_reg, target_net.fg_cnt_reg, target_net.bg_cnt_reg)
 
-		if args.region_bbox_reg:
-			train_region_box_loss.update(target_net.loss_region_box.data.cpu().numpy()[0], im_data.size(0))
+		# if args.region_bbox_reg:
+		train_pred_box_loss.update(target_net.loss_pred_box.data.cpu().numpy()[0], im_data.size(0))
 
 		t2 = time.time()
 		optimizer.zero_grad()
@@ -273,10 +272,10 @@ def train(train_loader, target_net, optimizer, epoch):
 
 			print('\t[Loss]\tobj_cls_loss: %.4f\tobj_box_loss: %.4f' %
 				  (train_obj_cls_loss.avg, train_obj_box_loss.avg)),
-			print('\tpred_cls_loss: %.4f,' % (train_pred_cls_loss.avg)),
+			print('\tpred_cls_loss: %.4f\tpred_box_loss: %.4f' % (train_pred_cls_loss.avg, train_pred_box_loss.avg)),
 
-			if args.region_bbox_reg:
-				print('\tregion_box_loss: %.4f, ' % (train_region_box_loss.avg)),
+			# if args.region_bbox_reg:
+			# 	print('\tregion_box_loss: %.4f, ' % (train_region_box_loss.avg)),
 
 			print('\n\t[object]\ttp: %.2f, \ttf: %.2f, \tfg/bg=(%d/%d)' %
 				  (accuracy_obj.ture_pos*100., accuracy_obj.true_neg*100., accuracy_obj.foreground, accuracy_obj.background))
@@ -288,17 +287,14 @@ def train(train_loader, target_net, optimizer, epoch):
 			# log_value('RPN_loss loss', overall_train_rpn_loss.avg, overall_train_rpn_loss.count)
 
 
-def test(test_loader, net, top_Ns, normal_test):
+def test(test_loader, net, top_Ns):
 
 	global args
 
-	if normal_test:
-		print '========== Normal Testing ========'
-	else:
-		print '========== Special Testing ========'
+	print '========== Testing ========'
 	net.eval()
 	# For efficiency inference
-	net.use_region_reg = True
+	# net.use_region_reg = True
 
 	rel_cnt = 0.
 	rel_cnt_correct = np.zeros(len(top_Ns))
@@ -309,12 +305,13 @@ def test(test_loader, net, top_Ns, normal_test):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0],
-			top_Ns = top_Ns, nms=True, normal_test=normal_test, use_rpn_scores=args.use_rpn_scores)
+			top_Ns = top_Ns, nms=True, use_rpn_scores=args.use_rpn_scores, use_predicate_boxes=args.use_predicate_boxes)
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t
 		batch_time.update(time.time() - end)
 		end = time.time()
 		if (i + 1) % 100 == 0 and i > 0:
+			print('Batch_Time: {batch_time.avg: .3f}s\t').format(batch_time=batch_time)
 			for idx, top_N in enumerate(top_Ns):
 				print '[%d/%d][Evaluation] Top-%d Recall: %2.3f%%' % (
 					i+1, len(test_loader), top_N, rel_cnt_correct[idx] / float(rel_cnt) * 100)

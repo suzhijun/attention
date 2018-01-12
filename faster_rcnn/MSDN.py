@@ -8,9 +8,7 @@ from torch.autograd import Variable
 from utils.timer import Timer
 from utils.HDN_utils import check_relationship_recall
 from fast_rcnn.nms_wrapper import nms
-from rpn_msr.proposal_layer import proposal_layer as proposal_layer_py
-from rpn_msr.anchor_target_layer import anchor_target_layer as anchor_target_layer_py
-from rpn_msr.proposal_target_layer_hdn import proposal_target_layer as proposal_target_layer_py
+from rpn_msr.proposal_target_layer_pair import proposal_target_layer as proposal_target_layer_py
 from fast_rcnn.bbox_transform import bbox_transform_inv_hdn, clip_boxes
 from fast_rcnn.hierarchical_message_passing_structure import Hierarchical_Message_Passing_Structure
 from RPN import RPN
@@ -52,13 +50,10 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		self.rpn = RPN(use_kmeans_anchors)
 		self.roi_pool_object = RoIPool(7, 7, 1.0/16)
 		self.roi_pool_phrase = RoIPool(7, 7, 1.0/16)
-		self.roi_pool_region = RoIPool(7, 7, 1.0/16)
 		self.fc6_obj = FC(512 * 7 * 7, nhidden, relu=True)
 		self.fc7_obj = FC(nhidden, nhidden, relu=False)
 		self.fc6_phrase = FC(512 * 7 * 7, nhidden, relu=True)
 		self.fc7_phrase = FC(nhidden, nhidden, relu=False)
-		self.fc6_region = FC(512 * 7 * 7, nhidden, relu=True)
-		self.fc7_region = FC(nhidden, nhidden, relu=False)
 		if MPS_iter == 0:
 			self.mps = None
 		else:
@@ -69,18 +64,16 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		self.score_obj = FC(nhidden, self.n_classes_obj, relu=False)
 		self.bbox_obj = FC(nhidden, self.n_classes_obj * 4, relu=False)
 		self.score_pred = FC(nhidden, self.n_classes_pred, relu=False)
-		if self.use_region_reg:
-			self.bbox_region = FC(nhidden, 4, relu=False)
-			network.weights_normal_init(self.bbox_region, 0.01)
-		else:
-			self.bbox_region = None
+		self.bbox_pred = FC(nhidden, self.n_classes_pred * 4, relu=False)
+
 
 		network.weights_normal_init(self.score_obj, 0.01)
 		network.weights_normal_init(self.bbox_obj, 0.005)
 		network.weights_normal_init(self.score_pred, 0.01)
+		network.weights_normal_init(self.bbox_pred, 0.005)
 
 
-	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None, graph_generation=False, normal_test=True):
+	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None, graph_generation=False):
 
 		self.timer.tic()
 		features, object_rois, region_rois, scores_object, scores_relationship = self.rpn(im_data, im_info, gt_objects, gt_regions)
@@ -100,16 +93,31 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			torch.cuda.synchronize()
 			print '\t[RPN]: %.3fs'%self.timer.toc(average=False)
 
+		if self.training:
+			# ToDo: set train object number or use all rpn proposals
+			subject_inds, object_inds, phrase_rois = compare_rel_rois(
+				object_rois, region_rois, scores_object, scores_relationship,
+				topN_obj=object_rois.size()[0], topN_rel=region_rois.size()[0],
+				obj_rel_thresh=cfg.TRAIN.MPN_OBJ_REL_THRESH,
+				max_objects=cfg.TRAIN.MPN_MAX_OBJECTS, topN_covers=cfg.TRAIN.MPN_COVER_NUM,
+				cover_thresh=cfg.TRAIN.MPN_MAKE_COVER_THRESH)
+		else:
+			object_rois_num = min(cfg.TEST.MPN_BBOX_NUM, object_rois.size()[0])
+			region_rois_num = min(cfg.TEST.MPN_REGION_NUM, region_rois.size()[0])
+			object_rois = object_rois[:object_rois_num, :]
+			region_rois = region_rois[:region_rois_num, :]
+			subject_inds, object_inds, phrase_rois = compare_rel_rois(
+				object_rois, region_rois, scores_object[:object_rois_num], scores_relationship[:region_rois_num],
+				topN_obj=cfg.TEST.MPN_BBOX_NUM, topN_rel=cfg.TEST.MPN_REGION_NUM,
+				obj_rel_thresh=cfg.TEST.MPN_OBJ_REL_THRESH,
+				max_objects=cfg.TEST.MPN_MAX_OBJECTS, topN_covers=cfg.TEST.MPN_COVER_NUM,
+				cover_thresh=cfg.TEST.MPN_MAKE_COVER_THRESH)
 
 		self.timer.tic()
-		if self.training or normal_test:
-			roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
-				self.proposal_target_layer(object_rois, region_rois, gt_objects, gt_relationships, gt_regions,
-						self.n_classes_obj, self.training, graph_generation=graph_generation)
-		else:
-			roi_data_object, roi_data_predicate, roi_data_region, mat_object, mat_phrase, mat_region = \
-				self.proposal_target_layer_test(object_rois, region_rois,
-												scores_object, scores_relationship, graph_generation=graph_generation)
+		roi_data_object, roi_data_predicate, mat_object = \
+			self.proposal_target_layer(object_rois, phrase_rois, subject_inds, object_inds,
+									   gt_objects, gt_relationships, gt_regions, self.n_classes_obj,
+									   self.n_classes_pred, self.training, graph_generation=graph_generation)
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -119,7 +127,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		self.timer.tic()
 		object_rois = roi_data_object[0]
 		phrase_rois = roi_data_predicate[0]
-		region_rois = roi_data_region[0]
 
 		# roi pool
 		pooled_object_features = self.roi_pool_object(features, object_rois)
@@ -145,23 +152,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		if self.dropout:
 			pooled_phrase_features = F.dropout(pooled_phrase_features, training = self.training)
 
-		pooled_region_features = self.roi_pool_region(features, region_rois)
-		pooled_region_features = pooled_region_features.view(pooled_region_features.size()[0], -1)
-		pooled_region_features = self.fc6_region(pooled_region_features)
-
-		if self.dropout:
-			pooled_region_features = F.dropout(pooled_region_features, training = self.training)
-
-		pooled_region_features = self.fc7_region(pooled_region_features)
-
-		if self.dropout:
-			pooled_region_features = F.dropout(pooled_region_features, training = self.training)
-
 		# bounding box regression before message passing
 		bbox_object = self.bbox_obj(F.relu(pooled_object_features))
-
-		if self.use_region_reg:
-			bbox_region = self.bbox_region(F.relu(pooled_region_features))
+		bbox_phrase = self.bbox_pred(F.relu(pooled_phrase_features))
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -177,9 +170,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				self.MPS_iter = cfg.TEST.MPS_ITER_NUM
 
 		for i in xrange(self.MPS_iter):
-			pooled_object_features, pooled_phrase_features, pooled_region_features = \
-				self.mps(pooled_object_features, pooled_phrase_features, pooled_region_features, \
-							mat_object, mat_phrase, mat_region)
+			pooled_object_features, pooled_phrase_features = \
+				self.mps(pooled_object_features, pooled_phrase_features, mat_object)
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -189,16 +181,12 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		self.timer.tic()
 		pooled_object_features = F.relu(pooled_object_features)
 		pooled_phrase_features = F.relu(pooled_phrase_features)
-		pooled_region_features = F.relu(pooled_region_features)
 
 		cls_score_object = self.score_obj(pooled_object_features)
 		cls_prob_object = F.softmax(cls_score_object)
 
 		cls_score_predicate = self.score_pred(pooled_phrase_features)
 		cls_prob_predicate = F.softmax(cls_score_predicate)
-
-		if not self.use_region_reg:
-			bbox_region = Variable(torch.zeros(pooled_region_features.size(0), 4).cuda())
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -207,29 +195,33 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		self.timer.tic()
 		if self.training:
-			self.cross_entropy_object, self.loss_obj_box = self.build_loss_object(cls_score_object, bbox_object, roi_data_object)
-			self.cross_entropy_predicate, self.tp_pred, self.tf_pred, self.fg_cnt_pred, self.bg_cnt_pred = \
-					self.build_loss_cls(cls_score_predicate, roi_data_predicate[1])
-
-			if self.use_region_reg:
-				self.loss_region_box = self.build_loss_bbox(bbox_region, roi_data_region)
+			self.cross_entropy_object, self.loss_obj_box, self.tp, self.tf, self.fg_cnt, self.bg_cnt = \
+				self.build_loss(cls_score_object, bbox_object, roi_data_object, obj=True)
+			self.cross_entropy_predicate, self.loss_pred_box, self.tp_pred, self.tf_pred, \
+			self.fg_cnt_pred, self.bg_cnt_pred = \
+				self.build_loss(cls_score_predicate, bbox_phrase, roi_data_predicate)
 
 		if TIME_IT:
 			torch.cuda.synchronize()
 			print '\t[Loss]:  %.3fs'%self.timer.toc(average=False)
 
+		subject_inds, object_inds = subject_inds.cpu().numpy(), object_inds.cpu().numpy()
+		subject_inds, object_inds = np.append(subject_inds, object_inds), np.append(object_inds, subject_inds)
+		mat_phrase = np.zeros((subject_inds.size, 2), dtype=np.int64)
+		mat_phrase[:, 0] = subject_inds
+		mat_phrase[:, 1] = object_inds
 		return (cls_prob_object, bbox_object, object_rois, scores_object), \
-				(cls_prob_predicate, mat_phrase), \
-			   (bbox_region, region_rois)
+				(cls_prob_predicate, bbox_phrase, phrase_rois, mat_phrase)
 
 	@staticmethod
-	def proposal_target_layer(object_rois, relationship_rois, gt_objects, gt_relationships,
-			gt_box_relationship, n_classes_obj, is_training=False, graph_generation=False):
+	def proposal_target_layer(object_rois, phrase_rois, subject_inds, object_inds,
+							  gt_objects, gt_relationships, gt_box_relationship, n_classes_obj, n_classes_pred,
+							  is_training=False, graph_generation=False):
 
 		"""
 		----------
 		object_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
-		relationship_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
+		phrase_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
 		gt_objects:   (G_obj, 5) [x1 ,y1 ,x2, y2, obj_class] int
 		gt_relationships: (G_obj, G_obj) [pred_class] int (-1 for no relationship)
 		gt_regions:   (G_region, 4+40) [x1, y1, x2, y2, word_index] (-1 for padding)
@@ -249,33 +241,35 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		"""
 
 		object_rois = object_rois.data.cpu().numpy()
-		relationship_rois = relationship_rois.data.cpu().numpy()
+		phrase_rois = phrase_rois.data.cpu().numpy()
+		subject_inds = subject_inds.cpu().numpy()
+		object_inds = object_inds.cpu().numpy()
 
-		object_labels, object_rois, bbox_targets, bbox_inside_weights, bbox_outside_weights, mat_object, \
-			phrase_label, phrase_rois, mat_phrase, relationship_rois, \
-			bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region, mat_region= \
-			proposal_target_layer_py(object_rois, relationship_rois, gt_objects, gt_relationships,
-				gt_box_relationship, n_classes_obj, is_training, graph_generation=graph_generation)
+		object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
+		phrase_labels, phrase_rois, bbox_targets_phrase, bbox_inside_weights_phrase, bbox_outside_weights_phrase, \
+		mat_object = \
+			proposal_target_layer_py(object_rois, phrase_rois, subject_inds, object_inds, gt_objects, gt_relationships,
+									 gt_box_relationship, n_classes_obj, n_classes_pred, is_training, graph_generation=graph_generation)
 
 		# print labels.shape, bbox_targets.shape, bbox_inside_weights.shape
 		if is_training:
 			object_labels = network.np_to_variable(object_labels, is_cuda=True, dtype=torch.LongTensor)
-			bbox_targets = network.np_to_variable(bbox_targets, is_cuda=True)
-			bbox_inside_weights = network.np_to_variable(bbox_inside_weights, is_cuda=True)
-			bbox_outside_weights = network.np_to_variable(bbox_outside_weights, is_cuda=True)
-			phrase_label = network.np_to_variable(phrase_label, is_cuda=True, dtype=torch.LongTensor)
-			bbox_targets_region = network.np_to_variable(bbox_targets_region, is_cuda=True)
-			bbox_inside_weights_region = network.np_to_variable(bbox_inside_weights_region, is_cuda=True)
-			bbox_outside_weights_region = network.np_to_variable(bbox_outside_weights_region, is_cuda=True)
+			bbox_targets_object = network.np_to_variable(bbox_targets_object, is_cuda=True)
+			bbox_inside_weights_object = network.np_to_variable(bbox_inside_weights_object, is_cuda=True)
+			bbox_outside_weights_object = network.np_to_variable(bbox_outside_weights_object, is_cuda=True)
+			phrase_labels = network.np_to_variable(phrase_labels, is_cuda=True, dtype=torch.LongTensor)
+			bbox_targets_phrase = network.np_to_variable(bbox_targets_phrase, is_cuda=True)
+			bbox_inside_weights_phrase = network.np_to_variable(bbox_inside_weights_phrase, is_cuda=True)
+			bbox_outside_weights_phrase = network.np_to_variable(bbox_outside_weights_phrase, is_cuda=True)
 
 		object_rois = network.np_to_variable(object_rois, is_cuda=True)
 		phrase_rois = network.np_to_variable(phrase_rois, is_cuda=True)
-		relationship_rois = network.np_to_variable(relationship_rois, is_cuda=True)
 
-		return (object_rois, object_labels, bbox_targets, bbox_inside_weights, bbox_outside_weights), \
-				(phrase_rois, phrase_label), \
-				(relationship_rois, bbox_targets_region, bbox_inside_weights_region, bbox_outside_weights_region), \
-				mat_object, mat_phrase, mat_region
+		return (object_rois, object_labels, bbox_targets_object, bbox_inside_weights_object,
+				bbox_outside_weights_object), \
+			   (phrase_rois, phrase_labels, bbox_targets_phrase, bbox_inside_weights_phrase,
+				bbox_outside_weights_phrase), \
+			   mat_object
 
 
 	def proposal_target_layer_test(self, object_rois, relationship_rois,
@@ -417,32 +411,101 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		return pred_boxes, scores, inds, subject_inds, object_inds, subject_boxes, object_boxes, predicate_inds
 
 
-	# def caption(self, im_path, gt_objects=None, gt_regions=None, thr=0.0, nms=False, top_N=100, clip=True, use_beam_search=False):
-	# 		image = cv2.imread(im_path)
-	# 		# print 'image.shape', image.shape
-	# 		im_data, im_scales = self.get_image_blob_noscale(image)
-	# 		# print 'im_data.shape', im_data.shape
-	# 		# print 'im_scales', im_scales
-	# 		if gt_objects is not None:
-	# 			gt_objects[:, :4] = gt_objects[:, :4] * im_scales[0]
-	# 		if gt_regions is not None:
-	# 			gt_regions[:, :4] = gt_regions[:, :4] * im_scales[0]
-	#
-	# 		im_info = np.array(
-	# 			[[im_data.shape[1], im_data.shape[2], im_scales[0]]],
-	# 			dtype=np.float32)
-	# 		# pdb.set_trace()
-	# 		region_result = self(im_data, im_info, gt_objects, gt_regions=gt_regions, use_beam_search=use_beam_search)[2]
-	# 		region_caption, bbox_pred, region_rois, logprobs = region_result[:]
-	#
-	# 		boxes = region_rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
-	# 		box_deltas = bbox_pred.data.cpu().numpy()
-	# 		pred_boxes = bbox_transform_inv_hdn(boxes, box_deltas)
-	# 		if clip:
-	# 			pred_boxes = clip_boxes(pred_boxes, image.shape)
-	#
-	# 		# print 'im_scales[0]', im_scales[0]
-	# 		return (region_caption.numpy(), logprobs.numpy(), pred_boxes)
+	def interpret_RMRPN(self, cls_prob_object, bbox_pred_object, rois_object,
+						cls_prob_predicate, bbox_pred_predicate, rois_predicate,
+						mat_phrase, rpn_scores_object, im_info, nms=True, clip=True, min_score=0.0,
+						top_N=100, use_gt_boxes=False, use_rpn_scores=False):
+		scores, inds = cls_prob_object[:, 1:].data.max(1)
+		inds += 1
+		scores, inds = scores.cpu().numpy(), inds.cpu().numpy()
+		predicate_scores, predicate_inds = cls_prob_predicate[:, 1:].data.max(1)
+		predicate_inds += 1
+		predicate_scores, predicate_inds = predicate_scores.cpu().numpy(), predicate_inds.cpu().numpy()
+
+		keep = np.where((inds > 0) & (scores >= min_score))
+		scores, inds = scores[keep], inds[keep]
+
+		# Apply bounding-box regression deltas
+		keep = keep[0]
+		box_deltas = bbox_pred_object.data.cpu().numpy()[keep]
+		box_deltas = np.asarray([
+			box_deltas[i, (inds[i] * 4): (inds[i] * 4 + 4)] for i in range(len(inds))
+		], dtype=np.float)
+		boxes = rois_object.data.cpu().numpy()[keep, 1:5] / im_info[0][2]
+		if use_gt_boxes:
+			nms = False
+			clip = False
+			pred_boxes = boxes
+		else:
+			pred_boxes = bbox_transform_inv_hdn(boxes, box_deltas)
+
+		if clip:
+			pred_boxes = clip_boxes(pred_boxes, im_info[0][:2] / im_info[0][2])
+
+		# nms
+		if nms and pred_boxes.shape[0] > 0:
+			pred_boxes, scores, inds, keep_keep = nms_detections(pred_boxes, scores, 0.60, inds=inds)
+			keep = keep[keep_keep]
+
+		sub_list = np.array([], dtype=int)
+		obj_list = np.array([], dtype=int)
+		pred_list = np.array([], dtype=int)
+
+		# print 'keep', keep
+		# print 'mat_phrase', mat_phrase
+		# keep predicate(phrase) whose sub & obj kept
+		for i in range(mat_phrase.shape[0]):
+			sub_id = np.where(keep == mat_phrase[i, 0])[0]
+			obj_id = np.where(keep == mat_phrase[i, 1])[0]
+			if len(sub_id) > 0 and len(obj_id) > 0:
+				sub_list = np.append(sub_list, sub_id[0])
+				obj_list = np.append(obj_list, obj_id[0])
+				pred_list = np.append(pred_list, i)
+
+		# keep_inds = np.full(inds.size, -1)
+		# keep_inds[keep] = np.arange(keep.size)
+		# sub_list_n = keep_inds[mat_phrase[i, 0]]
+		# obj_list_n = keep_inds[mat_phrase[i, 1]]
+		# keep_pred_inds = np.where((sub_list_n > -1) & (obj_list_n > -1))[0]
+		# sub_list_n = sub_list[keep_pred_inds]
+		# obj_list_n = obj_list[keep_pred_inds]
+
+		predicate_scores = predicate_scores[pred_list]
+		predicate_inds = predicate_inds[pred_list]
+		box_deltas_predicate = bbox_pred_predicate.data.cpu().numpy()[pred_list]
+
+		box_deltas_predicate = np.asarray([
+			box_deltas_predicate[i, (predicate_inds[i] * 4) : (predicate_inds[i] * 4 + 4)] for i in range(len(predicate_inds))
+		], dtype=np.float)
+		boxes_predicate = rois_predicate.data.cpu().numpy()[pred_list, 1:5] / im_info[0][2]
+		pred_boxes_predicate = bbox_transform_inv_hdn(boxes_predicate, box_deltas_predicate)
+
+		if nms and pred_boxes_predicate.shape[0] > 0:
+			pred_boxes_predicate, predicate_scores, predicate_inds, keep_pred_list = \
+				nms_detections(pred_boxes_predicate, predicate_scores, 0.60, inds=predicate_inds)
+			sub_list = sub_list[keep_pred_list]
+			obj_list = obj_list[keep_pred_list]
+
+		if use_rpn_scores:
+			total_scores = predicate_scores.squeeze() \
+							* scores[sub_list].squeeze() * scores[obj_list].squeeze() \
+						   * rpn_scores_object[sub_list].squeeze() * rpn_scores_object[obj_list].squeeze()
+		else:
+			total_scores = predicate_scores.squeeze() \
+						   * scores[sub_list].squeeze() * scores[obj_list].squeeze()
+		# keep top N phrase
+		top_N_list = total_scores.argsort()[::-1][:top_N]
+		predicate_inds = predicate_inds[top_N_list]
+		pred_boxes_predicate = pred_boxes_predicate[top_N_list]
+
+		subject_inds = inds[sub_list[top_N_list]]
+		object_inds = inds[obj_list[top_N_list]]
+		subject_boxes = pred_boxes[sub_list[top_N_list]]
+		object_boxes = pred_boxes[obj_list[top_N_list]]
+
+		return pred_boxes, scores, inds, subject_inds, object_inds, subject_boxes, object_boxes, \
+			   predicate_inds, pred_boxes_predicate
+
 	#
 	# def describe(self, im_path, top_N=10):
 	# 		image = cv2.imread(im_path)
@@ -475,7 +538,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 	def evaluate(self, im_data, im_info, gt_objects, gt_relationships, gt_regions,
-		thr=0.5, nms=False, top_Ns = [100], use_gt_boxes=False, use_gt_regions=False, only_predicate=False, normal_test=True, use_rpn_scores=False):
+				 thr=0.5, nms=False, top_Ns = [100], use_gt_boxes=False, use_gt_regions=False, only_predicate=False,
+				 use_rpn_scores=False, use_predicate_boxes=True):
 
 		if use_gt_boxes:
 			gt_boxes_object = gt_objects[:, :4] * im_info[2]
@@ -488,24 +552,25 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		else:
 			gt_boxes_regions = None
 
-		object_result, predicate_result, region_result = \
-			self(im_data, im_info, gt_boxes_object, gt_regions=gt_boxes_regions, graph_generation=True, normal_test=normal_test)
+		object_result, predicate_result = \
+			self(im_data, im_info, gt_boxes_object, gt_relationships=None, gt_regions=gt_boxes_regions, graph_generation=True)
 
 		cls_prob_object, bbox_object, object_rois, rpn_scores_object = object_result
-		cls_prob_predicate, mat_phrase = predicate_result[:2]
+		cls_prob_predicate, bbox_predicate, predicate_rois, mat_phrase = predicate_result
 
 		# interpret the model output
 		obj_boxes, obj_scores, obj_inds, subject_inds, object_inds, \
-			subject_boxes, object_boxes, predicate_inds = \
-				self.interpret_HDN(cls_prob_object, bbox_object, object_rois,
-							cls_prob_predicate, mat_phrase, rpn_scores_object, im_info,
-							nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
+			subject_boxes, object_boxes, predicate_inds, predicate_boxes = \
+				self.interpret_RMRPN(cls_prob_object, bbox_object, object_rois,
+									 cls_prob_predicate, bbox_predicate, predicate_rois,
+									 mat_phrase, rpn_scores_object, im_info,
+									 nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
 
 		gt_objects[:, :4] /= im_info[0][2]
-		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships,
+		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships, gt_regions,
 										subject_inds, object_inds, predicate_inds,
-										subject_boxes, object_boxes, top_Ns, thres=thr,
-										only_predicate=only_predicate)
+										subject_boxes, object_boxes, predicate_boxes, top_Ns, thres=thr,
+										only_predicate=only_predicate, use_predicate_boxes=use_predicate_boxes)
 
 		return rel_cnt, rel_correct_cnt
 
