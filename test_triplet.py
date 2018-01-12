@@ -100,7 +100,7 @@ def test(test_loader, target_net):
 		# subject_id, object_id, relationship_cover: Variable
 		subject_id, object_id, relationship_cover = compare_rel_rois(
 			object_rois, relationship_rois, scores_object, scores_relationship,
-			topN_obj=256, topN_rel=96, obj_rel_thresh=0.6, max_objects=15, topN_covers=2048, cover_thresh=0.5)
+			topN_obj=256, topN_rel=96, obj_rel_thresh=0.6, max_objects=12, topN_covers=1024, cover_thresh=0.5)
 
 		# print('relationship_cover size', relationship_cover.size())
 		# unique_obj = np.unique(np.append(subject_id.cpu().numpy(), object_id.cpu().numpy()))
