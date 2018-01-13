@@ -219,7 +219,7 @@ def train(train_loader, target_net, optimizer, epoch):
 		# measure the data loading time
 		data_time.update(time.time() - end)
 		t0 = time.time()
-		target_net(im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0])
+		target_net(im_data, im_info, gt_objects[0], gt_relationships[0], gt_regions[0])
 		if cfg.TIME_IT:
 			t1 = time.time()
 			print('forward time %.3fs')%(t1-t0)
@@ -304,7 +304,7 @@ def test(test_loader, net, top_Ns):
 	for i, (im_data, im_info, gt_objects, gt_relationships, gt_regions) in enumerate(test_loader):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t = net.evaluate(
-			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0],
+			im_data, im_info, gt_objects[0], gt_relationships[0], gt_regions[0],
 			top_Ns = top_Ns, nms=True, use_rpn_scores=args.use_rpn_scores, use_predicate_boxes=args.use_predicate_boxes)
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t

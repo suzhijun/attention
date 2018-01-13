@@ -48,8 +48,8 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
                      topN_obj=128, topN_rel=128, obj_rel_thresh=0.8, max_objects=9, topN_covers=4096,
                      cover_thresh=0.5):
     '''
-    :param object_rois: pytorch cuda Variable
-    :param relationship_rois: torch cuda Variable
+    :param object_rois: numpy array
+    :param relationship_rois: numpy array
     :param thresh: float
     :return: subject_id, object_id, rel_proposals: torch cuda
     '''

@@ -8,10 +8,12 @@
 import yaml
 import numpy as np
 import numpy.random as npr
+import torch
+from torch.autograd import Variable
 import pdb
 
 from ..utils.cython_bbox import bbox_overlaps, bbox_intersections
-
+from ..utils.make_cover import compare_rel_rois
 # TODO: make fast_rcnn irrelevant
 # >>>> obsolete, because it depends on sth outside of this project
 from ..fast_rcnn.config import cfg
@@ -22,14 +24,14 @@ from ..fast_rcnn.bbox_transform import bbox_transform
 DEBUG = False
 
 
-def proposal_target_layer(object_rois, phrase_rois, subject_inds, object_inds,
+def proposal_target_layer(object_rois, region_rois, scores_object, scores_relationship,
                           gt_objects, gt_relationships, gt_regions, n_classes_obj,
                           n_classes_pred, is_training, graph_generation=False):
-    #     object_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2] proposed by RPN
-    #     region_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2] proposed by RPN
-    #     gt_objects:   (G_obj, 5) [x1 ,y1 ,x2, y2, obj_class] float
-    #     gt_relationships: (G_obj, G_obj) [pred_class] int (-1 for no relationship)
-    #     gt_regions:   (G_region, 4+40) [x1, y1, x2, y2, word_index] (imdb.eos for padding)
+    #     object_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2] proposed by RPN, pytorch cuda variable
+    #     region_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2] proposed by RPN, pytorch cuda variable
+    #     gt_objects:   (G_obj, 5) [x1 ,y1 ,x2, y2, obj_class] float, tensor
+    #     gt_relationships: (G_obj, G_obj) [pred_class] int (-1 for no relationship), tensor
+    #     gt_regions:   (G_region, 4+40) [x1, y1, x2, y2, word_index] (imdb.eos for padding), tensor
     #     # gt_ishard: (G_region, 4+40) {0 | 1} 1 indicates hard
     #     # dontcare_areas: (D, 4) [ x1, y1, x2, y2]
     #     n_classes_obj
@@ -50,34 +52,47 @@ def proposal_target_layer(object_rois, phrase_rois, subject_inds, object_inds,
     # targets
     if is_training:
         all_rois = object_rois
-        zeros = np.zeros((gt_objects.shape[0], 1), dtype=gt_objects.dtype)
+        zeros = torch.zeros(gt_objects.size()[0], 1).cuda()
         # add gt_obj to predict_rois
-        all_rois = np.vstack(
-            (all_rois, np.hstack((zeros, gt_objects[:, :4])))
-        )
+        all_rois = torch.cat(
+            (all_rois, Variable(torch.cat((zeros, gt_objects[:, :4].cuda()), dim=1))), dim=0)
+        all_scores_object = np.append(scores_object, np.ones(gt_objects.shape[0], dtype=scores_object.dtype))
 
-        all_rois_phrase = phrase_rois
-        zeros = np.zeros((gt_regions.shape[0], 1), dtype=gt_regions.dtype)
-        all_rois_phrase = np.vstack(
-            (all_rois_phrase, np.hstack((zeros, gt_regions[:, :4])))
-        )
+        all_rois_region = region_rois
+        zeros = torch.zeros(gt_regions.size()[0], 1).cuda()
+        all_rois_region = torch.cat(
+            (all_rois_region, Variable(torch.cat((zeros, gt_regions[:, :4].cuda()), dim=1))), dim=0)
+        all_scores_relationship = np.append(scores_relationship,
+                                            np.ones(gt_regions.shape[0], dtype=scores_relationship.dtype))
 
-        # get subject id and object id of each gt_relationship
-        gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships > 0)
-        gt_rel_sub_idx, gt_rel_obj_idx = gt_rel_sub_idx + len(object_rois), gt_rel_obj_idx + len(object_rois)
-        subject_inds = np.append(subject_inds, gt_rel_sub_idx)
-        object_inds = np.append(object_inds, gt_rel_obj_idx)
-
+        subject_ids, object_ids, all_rois_phrase = compare_rel_rois(
+            all_rois, all_rois_region, all_scores_object, all_scores_relationship,
+            topN_obj=all_rois.size()[0], topN_rel=all_rois_region.size()[0],
+            obj_rel_thresh=cfg.TRAIN.MPN_OBJ_REL_THRESH,
+            max_objects=cfg.TRAIN.MPN_MAX_OBJECTS, topN_covers=cfg.TRAIN.MPN_COVER_NUM,
+            cover_thresh=cfg.TRAIN.MPN_MAKE_COVER_THRESH)
         # Sanity check: single batch only
-        assert np.all(all_rois[:, 0] == 0), \
-            'Only single item batches are supported'
+        # assert np.all(all_rois[:, 0] == 0), \
+        #     'Only single item batches are supported'
+
+        # last step, jia add gt_object and gt_regions to object proposals and relationship proposals,
+        # for some reason, the compare_rel_rois function didn't recall all gt_relationship
+        # so we add gt_relationship to all_rois_phrase directly here
+        all_rois_phrase = all_rois_phrase.data.cpu().numpy()
+        zeros = np.zeros((gt_regions.numpy().shape[0], 1), dtype=gt_regions.numpy().dtype)
+        all_rois_phrase = np.vstack((all_rois_phrase, np.hstack((zeros, gt_regions.numpy()[:, :4]))))
+        gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships.numpy() > 0)
+        gt_rel_sub_idx, gt_rel_obj_idx = gt_rel_sub_idx + object_rois.size()[0], gt_rel_obj_idx + object_rois.size()[0]
+        subject_inds = np.append(subject_ids.cpu().numpy(), gt_rel_sub_idx)
+        object_inds = np.append(object_ids.cpu().numpy(), gt_rel_obj_idx)
 
         object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, \
         phrase_labels, phrase_rois, bbox_targets_phrase, bbox_inside_weights_phrase, mat_object = \
-            _sample_rois(all_rois, all_rois_phrase, subject_inds, object_inds,
-                         gt_objects, gt_relationships, gt_regions, 1,
+            _sample_rois(all_rois.data.cpu().numpy(), all_rois_phrase,
+                         subject_inds, object_inds,
+                         gt_objects.numpy(), gt_relationships.numpy(), gt_regions.numpy(), 1,
                          n_classes_obj, n_classes_pred)
-
+        mat_phrase = None  # it's useless in the training phase
         # assert phrase_labels.shape[1] == cfg.TRAIN.LANGUAGE_MAX_LENGTH
         object_labels = object_labels.reshape(-1, 1)
         phrase_labels = phrase_labels.reshape(-1, 1)
@@ -88,9 +103,20 @@ def proposal_target_layer(object_rois, phrase_rois, subject_inds, object_inds,
         bbox_outside_weights_object = np.array(bbox_inside_weights_object > 0).astype(np.float32)
         bbox_outside_weights_phrase = np.array(bbox_inside_weights_phrase > 0).astype(np.float32)
     else:
-        object_rois, phrase_rois, mat_object = \
-            _setup_connection(object_rois, phrase_rois, subject_inds,
-                              object_inds, graph_generation=graph_generation)
+        object_rois_num = min(cfg.TEST.MPN_BBOX_NUM, object_rois.size()[0])
+        region_rois_num = min(cfg.TEST.MPN_REGION_NUM, region_rois.size()[0])
+        truncated_object_rois = object_rois[:object_rois_num, :]
+        truncated_region_rois = region_rois[:region_rois_num, :]
+        subject_inds, object_inds, phrase_rois = compare_rel_rois(
+            truncated_object_rois, truncated_region_rois, scores_object, scores_relationship,
+            topN_obj=cfg.TEST.MPN_BBOX_NUM, topN_rel=cfg.TEST.MPN_REGION_NUM,
+            obj_rel_thresh=cfg.TEST.MPN_OBJ_REL_THRESH,
+            max_objects=cfg.TEST.MPN_MAX_OBJECTS, topN_covers=cfg.TEST.MPN_COVER_NUM,
+            cover_thresh=cfg.TEST.MPN_MAKE_COVER_THRESH)
+
+        object_rois, phrase_rois, mat_object, mat_phrase = \
+            _setup_connection(truncated_object_rois.data.cpu().numpy(), phrase_rois.data.cpu().numpy(),
+                              subject_inds.cpu().numpy(), object_inds.cpu().numpy(), graph_generation=graph_generation)
         object_labels, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
         phrase_labels, bbox_targets_phrase, bbox_inside_weights_phrase, bbox_outside_weights_phrase = [None] * 8
     # print 'phrase_roi', phrase_roi
@@ -130,7 +156,7 @@ def proposal_target_layer(object_rois, phrase_rois, subject_inds, object_inds,
     assert phrase_rois.shape[1] == 5
     return object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
            phrase_labels, phrase_rois, bbox_targets_phrase, bbox_inside_weights_phrase, bbox_outside_weights_phrase, \
-           mat_object
+           mat_object, mat_phrase
 
 
 def _get_bbox_regression_labels(bbox_target_data, num_classes):
@@ -273,23 +299,22 @@ def _sample_rois(object_rois, phrase_rois, subject_inds, object_inds,
 
 def _setup_connection(object_rois, phrase_rois, subject_inds, object_inds, graph_generation=False):
 
-    # overlaps: (rois x gt_boxes)
     # TEST.BBOX_NUM = object_rois.shape[0] = 512
-    roi_num = cfg.TEST.MPN_BBOX_NUM
-    keep_inds = np.array(range(min(roi_num, object_rois.shape[0])))
-    rois = object_rois[keep_inds]
-
     # get sub_obj and obj_sub combination
     subject_inds, object_inds = np.append(subject_inds, object_inds), np.append(object_inds, subject_inds)
     phrase_rois = np.vstack((phrase_rois, phrase_rois))
 
     # prepare connection matrix
-    mat_object = np.zeros((rois.shape[0], 2, phrase_rois.shape[0]), dtype=np.int64)
+    mat_object = np.zeros((object_rois.shape[0], 2, phrase_rois.shape[0]), dtype=np.int64)
     for i in range(phrase_rois.shape[0]):
         mat_object[subject_inds[i], 0, i] = 1
         mat_object[object_inds[i], 1, i] = 1
 
-    return rois, phrase_rois, mat_object
+    mat_phrase = np.zeros((subject_inds.size, 2), dtype=np.int64)
+    mat_phrase[:, 0] = subject_inds
+    mat_phrase[:, 1] = object_inds
+
+    return object_rois, phrase_rois, mat_object, mat_phrase
 
 
 def _get_fg_phrase_inds(obj_overlaps, obj_gt_assignment, rel_overlaps,

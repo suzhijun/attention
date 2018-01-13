@@ -76,46 +76,47 @@ class Hierarchical_Descriptive_Model(HDN_base):
 	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None, graph_generation=False):
 
 		self.timer.tic()
-		features, object_rois, region_rois, scores_object, scores_relationship = self.rpn(im_data, im_info, gt_objects, gt_regions)
+		features, object_rois, region_rois, scores_object, scores_relationship = \
+			self.rpn(im_data, im_info, gt_objects.numpy(), gt_regions.numpy())
 
 		if not self.training and gt_objects is not None:
-			zeros = np.zeros((gt_objects.shape[0], 1), dtype=gt_objects.dtype)
-			object_rois_gt = np.hstack((zeros, gt_objects[:, :4]))
-			object_rois_gt = network.np_to_variable(object_rois_gt, is_cuda=True)
+			zeros = torch.zeros(gt_objects.shape[0], 1)
+			object_rois_gt = torch.cat((zeros, gt_objects[:, :4]), dim=1)
+			object_rois_gt = Variable(object_rois_gt.cuda())
 			object_rois[:object_rois_gt.size(0)] = object_rois_gt
 
 		if not self.training and gt_regions is not None:
-			zeros = np.zeros((gt_regions.shape[0], 1), dtype=gt_regions.dtype)
-			region_rois = np.hstack((zeros, gt_regions[:, :4]))
-			region_rois = network.np_to_variable(region_rois, is_cuda=True)
+			zeros = torch.zeros(gt_regions.shape[0], 1)
+			region_rois = torch((zeros, gt_regions[:, :4]), dim=1)
+			region_rois = Variable(region_rois.cuda())
 
 		if TIME_IT:
 			torch.cuda.synchronize()
 			print '\t[RPN]: %.3fs'%self.timer.toc(average=False)
 
-		if self.training:
-			# ToDo: set train object number or use all rpn proposals
-			subject_inds, object_inds, phrase_rois = compare_rel_rois(
-				object_rois, region_rois, scores_object, scores_relationship,
-				topN_obj=object_rois.size()[0], topN_rel=region_rois.size()[0],
-				obj_rel_thresh=cfg.TRAIN.MPN_OBJ_REL_THRESH,
-				max_objects=cfg.TRAIN.MPN_MAX_OBJECTS, topN_covers=cfg.TRAIN.MPN_COVER_NUM,
-				cover_thresh=cfg.TRAIN.MPN_MAKE_COVER_THRESH)
-		else:
-			object_rois_num = min(cfg.TEST.MPN_BBOX_NUM, object_rois.size()[0])
-			region_rois_num = min(cfg.TEST.MPN_REGION_NUM, region_rois.size()[0])
-			object_rois = object_rois[:object_rois_num, :]
-			region_rois = region_rois[:region_rois_num, :]
-			subject_inds, object_inds, phrase_rois = compare_rel_rois(
-				object_rois, region_rois, scores_object[:object_rois_num], scores_relationship[:region_rois_num],
-				topN_obj=cfg.TEST.MPN_BBOX_NUM, topN_rel=cfg.TEST.MPN_REGION_NUM,
-				obj_rel_thresh=cfg.TEST.MPN_OBJ_REL_THRESH,
-				max_objects=cfg.TEST.MPN_MAX_OBJECTS, topN_covers=cfg.TEST.MPN_COVER_NUM,
-				cover_thresh=cfg.TEST.MPN_MAKE_COVER_THRESH)
+		# if self.training:
+		# 	# ToDo: set train object number or use all rpn proposals
+		# 	subject_inds, object_inds, phrase_rois = compare_rel_rois(
+		# 		object_rois, region_rois, scores_object, scores_relationship,
+		# 		topN_obj=object_rois.size()[0], topN_rel=region_rois.size()[0],
+		# 		obj_rel_thresh=cfg.TRAIN.MPN_OBJ_REL_THRESH,
+		# 		max_objects=cfg.TRAIN.MPN_MAX_OBJECTS, topN_covers=cfg.TRAIN.MPN_COVER_NUM,
+		# 		cover_thresh=cfg.TRAIN.MPN_MAKE_COVER_THRESH)
+		# else:
+		# 	object_rois_num = min(cfg.TEST.MPN_BBOX_NUM, object_rois.size()[0])
+		# 	region_rois_num = min(cfg.TEST.MPN_REGION_NUM, region_rois.size()[0])
+		# 	object_rois = object_rois[:object_rois_num, :]
+		# 	region_rois = region_rois[:region_rois_num, :]
+		# 	subject_inds, object_inds, phrase_rois = compare_rel_rois(
+		# 		object_rois, region_rois, scores_object[:object_rois_num], scores_relationship[:region_rois_num],
+		# 		topN_obj=cfg.TEST.MPN_BBOX_NUM, topN_rel=cfg.TEST.MPN_REGION_NUM,
+		# 		obj_rel_thresh=cfg.TEST.MPN_OBJ_REL_THRESH,
+		# 		max_objects=cfg.TEST.MPN_MAX_OBJECTS, topN_covers=cfg.TEST.MPN_COVER_NUM,
+		# 		cover_thresh=cfg.TEST.MPN_MAKE_COVER_THRESH)
 
 		self.timer.tic()
-		roi_data_object, roi_data_predicate, mat_object = \
-			self.proposal_target_layer(object_rois, phrase_rois, subject_inds, object_inds,
+		roi_data_object, roi_data_predicate, mat_object, mat_phrase = \
+			self.proposal_target_layer(object_rois, region_rois, scores_object, scores_relationship,
 									   gt_objects, gt_relationships, gt_regions, self.n_classes_obj,
 									   self.n_classes_pred, self.training, graph_generation=graph_generation)
 
@@ -205,26 +206,21 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			torch.cuda.synchronize()
 			print '\t[Loss]:  %.3fs'%self.timer.toc(average=False)
 
-		subject_inds, object_inds = subject_inds.cpu().numpy(), object_inds.cpu().numpy()
-		subject_inds, object_inds = np.append(subject_inds, object_inds), np.append(object_inds, subject_inds)
-		mat_phrase = np.zeros((subject_inds.size, 2), dtype=np.int64)
-		mat_phrase[:, 0] = subject_inds
-		mat_phrase[:, 1] = object_inds
 		return (cls_prob_object, bbox_object, object_rois, scores_object), \
 				(cls_prob_predicate, bbox_phrase, phrase_rois, mat_phrase)
 
 	@staticmethod
-	def proposal_target_layer(object_rois, phrase_rois, subject_inds, object_inds,
+	def proposal_target_layer(object_rois, region_rois, scores_object, scores_relationship,
 							  gt_objects, gt_relationships, gt_box_relationship, n_classes_obj, n_classes_pred,
 							  is_training=False, graph_generation=False):
 
 		"""
 		----------
-		object_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
-		phrase_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
-		gt_objects:   (G_obj, 5) [x1 ,y1 ,x2, y2, obj_class] int
-		gt_relationships: (G_obj, G_obj) [pred_class] int (-1 for no relationship)
-		gt_regions:   (G_region, 4+40) [x1, y1, x2, y2, word_index] (-1 for padding)
+		object_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2], Variable, cuda
+		phrase_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2], Variable, cuda
+		gt_objects:   (G_obj, 5) [x1 ,y1 ,x2, y2, obj_class] int, tensor
+		gt_relationships: (G_obj, G_obj) [pred_class] int (-1 for no relationship), tensor
+		gt_regions:   (G_region, 4+40) [x1, y1, x2, y2, word_index] (-1 for padding), tensor
 		# gt_ishard: (G_region, 4+40) {0 | 1} 1 indicates hard
 		# dontcare_areas: (D, 4) [ x1, y1, x2, y2]
 		n_classes_obj
@@ -240,16 +236,12 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		bbox_outside_weights: (1 x H x W x A, Kx4) 0, 1 masks for the computing loss
 		"""
 
-		object_rois = object_rois.data.cpu().numpy()
-		phrase_rois = phrase_rois.data.cpu().numpy()
-		subject_inds = subject_inds.cpu().numpy()
-		object_inds = object_inds.cpu().numpy()
-
 		object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
 		phrase_labels, phrase_rois, bbox_targets_phrase, bbox_inside_weights_phrase, bbox_outside_weights_phrase, \
-		mat_object = \
-			proposal_target_layer_py(object_rois, phrase_rois, subject_inds, object_inds, gt_objects, gt_relationships,
-									 gt_box_relationship, n_classes_obj, n_classes_pred, is_training, graph_generation=graph_generation)
+		mat_object, mat_phrase = \
+			proposal_target_layer_py(object_rois, region_rois, scores_object, scores_relationship,
+									 gt_objects, gt_relationships, gt_box_relationship, n_classes_obj, n_classes_pred,
+									 is_training, graph_generation=graph_generation)
 
 		# print labels.shape, bbox_targets.shape, bbox_inside_weights.shape
 		if is_training:
@@ -269,7 +261,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				bbox_outside_weights_object), \
 			   (phrase_rois, phrase_labels, bbox_targets_phrase, bbox_inside_weights_phrase,
 				bbox_outside_weights_phrase), \
-			   mat_object
+			   mat_object, mat_phrase
 
 
 	def proposal_target_layer_test(self, object_rois, relationship_rois,
@@ -567,7 +559,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 									 nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
 
 		gt_objects[:, :4] /= im_info[0][2]
-		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships, gt_regions,
+		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects.numpy(), gt_relationships.numpy(), gt_regions.numpy(),
 										subject_inds, object_inds, predicate_inds,
 										subject_boxes, object_boxes, predicate_boxes, top_Ns, thres=thr,
 										only_predicate=only_predicate, use_predicate_boxes=use_predicate_boxes)
