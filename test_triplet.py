@@ -123,19 +123,19 @@ def test(test_loader, target_net):
 		scores_object = np.append(scores_object, np.ones(gt_objects.size()[1], dtype=scores_object.dtype))
 		scores_relationship = np.append(scores_relationship, np.ones(gt_boxes_relationship.size()[1], dtype=scores_relationship.dtype))
 		subject_id, object_id, relationship_cover = compare_rel_rois(
-			network.np_to_variable(all_rois, is_cuda=True), network.np_to_variable(all_rois_phrase, is_cuda=True), scores_object, scores_relationship,
+			all_rois, all_rois_phrase, scores_object, scores_relationship,
 			topN_obj=all_rois.shape[0], topN_rel=all_rois_phrase.shape[0],
-			obj_rel_thresh=0.6, max_objects=18, topN_covers=4096, cover_thresh=0.6)
+			obj_rel_thresh=0.6, max_objects=18, topN_covers=2048, cover_thresh=0.6)
 
-		all_rois_phrase_all = relationship_cover.data.cpu().numpy()
+		all_rois_phrase_all = relationship_cover
 		zeros = np.zeros((gt_boxes_relationship.numpy().shape[1], 1), dtype=gt_boxes_relationship.numpy()[0].dtype)
 		all_rois_phrase_all = np.vstack(
 			(all_rois_phrase_all, np.hstack((zeros, gt_boxes_relationship.numpy()[0][:, :4])))
 		)
 		gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships.numpy()[0] > 0)
 		gt_rel_sub_idx, gt_rel_obj_idx = gt_rel_sub_idx + object_rois.size()[0], gt_rel_obj_idx + object_rois.size()[0]
-		subject_inds = np.append(subject_id.cpu().numpy(), gt_rel_sub_idx)
-		object_inds = np.append(object_id.cpu().numpy(), gt_rel_obj_idx)
+		subject_inds = np.append(subject_id, gt_rel_sub_idx)
+		object_inds = np.append(object_id, gt_rel_obj_idx)
 		cover_obj_check = check_obj_rel_recall(gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_boxes_relationship.numpy()[0],
 											   all_rois_phrase_all, all_rois,
 											   # all_rois_phrase, all_rois,
@@ -198,7 +198,7 @@ def test(test_loader, target_net):
 			print('[relationship_cover number]: {0}\n'
 				  '[cover vs gt_relationship_boxes average recall]: {1:.3f}\n'
 				  '[cover & sub & obj vs gt_relationship_boxes average recall]: {2:.3f}').format(
-				relationship_cover.size()[0], cover_cnt/float(total_cnt[1])*100, cover_gt_cnt/float(total_cnt[1])*100)
+				relationship_cover.shape[0], cover_cnt/float(total_cnt[1])*100, cover_gt_cnt/float(total_cnt[1])*100)
 			print('average fg_cover: {0:.2f}'
 				  '\taverage fg_object: {1:.2f}'
 				  '\taverage cover_gt: {2:.2f}'
