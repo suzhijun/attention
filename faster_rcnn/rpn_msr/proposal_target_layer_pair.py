@@ -21,7 +21,7 @@ from ..fast_rcnn.bbox_transform import bbox_transform
 
 # <<<< obsolete
 
-DEBUG = False
+DEBUG = True
 
 
 def proposal_target_layer(object_rois, region_rois, scores_object, scores_relationship,
