@@ -54,6 +54,7 @@ class Message_Passing_Unit_v1(nn.Module):
 		
 		return output
 
+
 class Gated_Recurrent_Unit(nn.Module):
 	def __init__(self, fea_size, dropout):
 		super(Gated_Recurrent_Unit, self).__init__()
@@ -68,9 +69,8 @@ class Gated_Recurrent_Unit(nn.Module):
 		return output
 
 
-
 class Hierarchical_Message_Passing_Structure_base(nn.Module):
-	def __init__(self, fea_size, dropout=False, gate_width=128, use_region=True, use_kernel_function=False):
+	def __init__(self, fea_size, dropout=False, gate_width=128, use_region=False, use_kernel_function=False):
 		super(Hierarchical_Message_Passing_Structure_base, self).__init__()
 		#self.w_object = Parameter()
 		if use_kernel_function:
@@ -90,8 +90,6 @@ class Hierarchical_Message_Passing_Structure_base(nn.Module):
 			self.gate_pred2reg = Message_Passing_Unit(fea_size, gate_width) 
 			self.gate_reg2pred = Message_Passing_Unit(fea_size, gate_width) 
 			self.GRU_region = Gated_Recurrent_Unit(fea_size, dropout)
-		
-
 
 	def forward(self, feature_obj, feature_phrase, feature_region, mps_object, mps_phrase, mps_region):
 		raise Exception('Please implement the forward function')
