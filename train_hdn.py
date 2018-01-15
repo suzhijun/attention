@@ -17,12 +17,12 @@ from faster_rcnn.utils.HDN_utils import get_model_name, group_features
 
 
 TIME_IT = cfg.TIME_IT
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive Model in pytorch')
 
 # Training parameters
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
-parser.add_argument('--max_epoch', type=int, default=6, metavar='N', help='max iterations for training')
+parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
 parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
@@ -30,7 +30,7 @@ parser.add_argument('--step_size', type=int, default = 2, help='Step size for re
 # structure settings
 parser.add_argument('--resume_model', default=False, help='Resume model from the entire model')
 parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_resume_SGD_best.h5', help='The model used for resuming entire training')
-parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
+parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
@@ -46,12 +46,12 @@ parser.add_argument('--use_kernel_function', action='store_true')
 # Environment Settings
 parser.add_argument('--train_all', default=True, help='Train all the mode')
 parser.add_argument('--seed', type=int, default=1, help='set seed to some constant value to reproduce experiments')
-parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
+parser.add_argument('--dataset_option', type=str, default='normal', help='The dataset to use (small | normal | fat)')
 parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Location to output the model')
 parser.add_argument('--model_name', type=str, default='HDN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
-parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
-parser.add_argument('--evaluate', default=False, help='Only use the testing mode')
+parser.add_argument('--optimizer', type=int, default=2, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
+parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
 parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
 parser.add_argument('--use_predicate_boxes', default=False, help='Check if predicate boxes match gt relationship or not')
 
@@ -219,7 +219,7 @@ def train(train_loader, target_net, optimizer, epoch):
 		# measure the data loading time
 		data_time.update(time.time() - end)
 		t0 = time.time()
-		target_net(im_data, im_info, gt_objects[0], gt_relationships[0], gt_regions[0])
+		target_net(im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0])
 		if cfg.TIME_IT:
 			t1 = time.time()
 			print('forward time %.3fs')%(t1-t0)
@@ -304,7 +304,7 @@ def test(test_loader, net, top_Ns):
 	for i, (im_data, im_info, gt_objects, gt_relationships, gt_regions) in enumerate(test_loader):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t = net.evaluate(
-			im_data, im_info, gt_objects[0], gt_relationships[0], gt_regions[0],
+			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0],
 			top_Ns = top_Ns, nms=True, use_rpn_scores=args.use_rpn_scores, use_predicate_boxes=args.use_predicate_boxes)
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t

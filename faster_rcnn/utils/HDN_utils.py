@@ -190,7 +190,6 @@ def check_obj_rel_recall(gt_objects, gt_relationships, gt_boxes_relationship, re
     logger.info('left objects: %d', len(np.where(max_obj_overlaps >= object_thresh)[0]))
     logger.info('left all: %d', len(np.where(obj_overlaps >= object_thresh)[0]))
 
-    obj_overlaps_bool = obj_overlaps >= object_thresh
     # overlaps between relationship cover and gt_relationship
     rel_overlaps = bbox_overlaps(np.ascontiguousarray(rel_covers[:,1:], dtype=np.float),
                                  np.ascontiguousarray(gt_boxes_relationship[:,:4], dtype=np.float))
@@ -215,12 +214,10 @@ def check_obj_rel_recall(gt_objects, gt_relationships, gt_boxes_relationship, re
     subject_selected = subject_inds[selected_rel_cover_inds]
     object_selected = object_inds[selected_rel_cover_inds]
 
-    cover_sub_gt_assignment = gt_rel_sub_idx[rel_gt_assignment]
-    cover_obj_gt_assignment = gt_rel_obj_idx[rel_gt_assignment]
-
     # get region keep inds
-    fg_cover_bool = np.logical_and(obj_overlaps_bool[subject_selected, cover_sub_gt_assignment],
-                                   obj_overlaps_bool[object_selected, cover_obj_gt_assignment])
+    fg_cover_bool = np.logical_and(
+        np.logical_and(obj_gt_assignment[subject_selected], gt_rel_sub_idx[rel_gt_assignment]),
+        np.logical_and(obj_gt_assignment[object_selected], gt_rel_obj_idx[rel_gt_assignment]))
     bg_cover_part = np.logical_not(fg_cover_bool)
     rel_overlaps[selected_rel_cover_inds[bg_cover_part], rel_gt_assignment[bg_cover_part]] = 0
 

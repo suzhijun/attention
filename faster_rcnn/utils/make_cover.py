@@ -16,38 +16,37 @@ TIME_IT = False
 
 
 def region_pairs(region):
-    object_num = len(region[region >= 0])
-    return object_num * (object_num - 1)
+	object_num = len(region[region >= 0])
+	return object_num * (object_num - 1)
 
 
 def get_area(region):
-    region_area = (region[:, 2] - region[:, 0] + 1) * \
-                    (region[:, 3] - region[:, 1] + 1)
-    return region_area
+	region_area = (region[:, 2] - region[:, 0] + 1) * \
+					(region[:, 3] - region[:, 1] + 1)
+	return region_area
 
 
 def test(rel_obj_index):
-    ob_i = np.array([])
-    ob_j = np.array([])
-    rel_id = np.array([])
-    for i in range(len(rel_obj_index)):
-        indexes = rel_obj_index[i][rel_obj_index[i] >= 0]
-        id_i, id_j = np.meshgrid(indexes, indexes, indexing='ij')
-        # upper triangle
-        id_iu = np.triu_indices(len(indexes), k=1)
-        id_i = id_i[id_iu]
-        id_j = id_j[id_iu]
-        # resize and append
-        ob_i = np.append(ob_i, id_i.reshape(-1))
-        ob_j = np.append(ob_j, id_j.reshape(-1))
-        rel_id = np.append(rel_id, [i] * len(id_j.reshape(-1)))
-    return ob_i, ob_j, rel_id
+	ob_i = np.array([])
+	ob_j = np.array([])
+	rel_id = np.array([])
+	for i in range(len(rel_obj_index)):
+		indexes = rel_obj_index[i][rel_obj_index[i] >= 0]
+		id_i, id_j = np.meshgrid(indexes, indexes, indexing='ij')
+		# upper triangle
+		id_iu = np.triu_indices(len(indexes), k=1)
+		id_i = id_i[id_iu]
+		id_j = id_j[id_iu]
+		# resize and append
+		ob_i = np.append(ob_i, id_i.reshape(-1))
+		ob_j = np.append(ob_j, id_j.reshape(-1))
+		rel_id = np.append(rel_id, [i] * len(id_j.reshape(-1)))
+	return ob_i, ob_j, rel_id
 
 
 def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relationship,
-                     topN_obj=128, topN_rel=128, obj_rel_thresh=0.8, max_objects=9, topN_covers=4096,
-                     cover_thresh=0.5):
-
+					 topN_obj=128, topN_rel=128, obj_rel_thresh=0.8, max_objects=9, topN_covers=4096,
+					 cover_thresh=0.5):
 	timer = Timer()
 	timer.tic()
 	rel_obj_index = region_objects(
@@ -125,11 +124,11 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
 	timer.tic()
 	# get covers
 	rel_proposals = np.hstack((np.zeros([rel_object.shape[0], 1]),
-	                           np.minimum(rel_subject[:, 1:3], rel_object[:, 1:3]),
-	                           np.maximum(rel_subject[:, 3:], rel_object[:, 3:])))
+							   np.minimum(rel_subject[:, 1:3], rel_object[:, 1:3]),
+							   np.maximum(rel_subject[:, 3:], rel_object[:, 3:])))
 	# get intersections between covers and relationship_rois
 	intersections = np.hstack((np.maximum(rel_proposals[:, 1:3], rel_relationship[:, 1:3]),
-	                           np.minimum(rel_proposals[:, 3:], rel_relationship[:, 3:])))
+							   np.minimum(rel_proposals[:, 3:], rel_relationship[:, 3:])))
 
 	# get area of covers, relationship_rois, intersections
 	proposals_area = get_area(rel_proposals[:, 1:])
@@ -158,6 +157,8 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
 	rel_proposals = rel_proposals[keep_ind, :]
 
 	score_cover = score_cover[keep_ind]
+	if topN_covers == None:
+		topN_covers = score_cover.size
 	score_ind = (-score_cover).argsort()[:topN_covers]
 	subject_id = subject_id[score_ind]
 	object_id = object_id[score_ind]

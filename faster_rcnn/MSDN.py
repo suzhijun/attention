@@ -77,18 +77,29 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		self.timer.tic()
 		features, object_rois, region_rois, scores_object, scores_relationship = \
-			self.rpn(im_data, im_info, gt_objects.numpy(), gt_regions.numpy())
+			self.rpn(im_data, im_info, gt_objects, gt_regions)
 
 		if not self.training and gt_objects is not None:
-			zeros = torch.zeros(gt_objects.shape[0], 1)
-			object_rois_gt = torch.cat((zeros, gt_objects[:, :4]), dim=1)
-			object_rois_gt = Variable(object_rois_gt.cuda())
+			zeros = np.zeros((gt_objects.shape[0], 1), dtype=gt_objects.dtype)
+			object_rois_gt = np.hstack((zeros, gt_objects[:, :4]))
+			object_rois_gt = network.np_to_variable(object_rois_gt, is_cuda=True)
 			object_rois[:object_rois_gt.size(0)] = object_rois_gt
 
 		if not self.training and gt_regions is not None:
-			zeros = torch.zeros(gt_regions.shape[0], 1)
-			region_rois = torch((zeros, gt_regions[:, :4]), dim=1)
-			region_rois = Variable(region_rois.cuda())
+			zeros = np.zeros((gt_regions.shape[0], 1), dtype=gt_regions.dtype)
+			region_rois = np.hstack((zeros, gt_regions[:, :4]))
+			region_rois = network.np_to_variable(region_rois, is_cuda=True)
+
+		# if not self.training and gt_objects is not None:
+		# 	zeros = torch.zeros(gt_objects.shape[0], 1)
+		# 	object_rois_gt = torch.cat((zeros, gt_objects[:, :4]), dim=1)
+		# 	object_rois_gt = Variable(object_rois_gt.cuda())
+		# 	object_rois[:object_rois_gt.size(0)] = object_rois_gt
+
+		# if not self.training and gt_regions is not None:
+		# 	zeros = torch.zeros(gt_regions.shape[0], 1)
+		# 	region_rois = torch((zeros, gt_regions[:, :4]), dim=1)
+		# 	region_rois = Variable(region_rois.cuda())
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -235,6 +246,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		bbox_inside_weights: (1 x H x W x A, Kx4) 0, 1 masks for the computing loss
 		bbox_outside_weights: (1 x H x W x A, Kx4) 0, 1 masks for the computing loss
 		"""
+
+		object_rois = object_rois.data.cpu().numpy()
+		region_rois = region_rois.data.cpu().numpy()
 
 		object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
 		phrase_labels, phrase_rois, bbox_targets_phrase, bbox_inside_weights_phrase, bbox_outside_weights_phrase, \
@@ -559,7 +573,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 									 nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
 
 		gt_objects[:, :4] /= im_info[0][2]
-		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects.numpy(), gt_relationships.numpy(), gt_regions.numpy(),
+		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships, gt_regions,
 										subject_inds, object_inds, predicate_inds,
 										subject_boxes, object_boxes, predicate_boxes, top_Ns, thres=thr,
 										only_predicate=only_predicate, use_predicate_boxes=use_predicate_boxes)
