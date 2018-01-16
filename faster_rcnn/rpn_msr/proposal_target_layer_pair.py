@@ -10,7 +10,7 @@ import numpy as np
 import numpy.random as npr
 import torch
 from torch.autograd import Variable
-import pdb
+import ipdb
 
 from ..utils.cython_bbox import bbox_overlaps, bbox_intersections
 from ..utils.make_cover import compare_rel_rois
@@ -82,7 +82,7 @@ def proposal_target_layer(object_rois, region_rois, scores_object, scores_relati
 
         object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, \
         phrase_labels, phrase_rois, bbox_targets_phrase, bbox_inside_weights_phrase, mat_object = \
-            _sample_rois_new(all_rois, all_rois_region, all_scores_object, all_scores_relationship,
+            _sample_rois(all_rois, all_rois_region, all_scores_object, all_scores_relationship,
                          gt_objects, gt_relationships, gt_regions, 1,
                          n_classes_obj, n_classes_pred)
         mat_phrase = None  # it's useless in the training phase
@@ -121,6 +121,7 @@ def proposal_target_layer(object_rois, region_rois, scores_object, scores_relati
         # print 'object num bg: {}'.format((object_labels == 0).sum())
         # print 'relationship num fg: {}'.format((phrase_labels > 0).sum())
         # print 'relationship num bg: {}'.format((phrase_labels == 0).sum())
+        print(object_labels)
         count = 1
         fg_num = np.where(object_labels > 0)[0].size
         bg_num = np.where(object_labels == 0)[0].size
@@ -229,11 +230,12 @@ def _get_fg_phrase_inds(obj_gt_assignment, phrase_overlaps, subject_inds, object
     return fg_phrase_inds, fg_phrase_gt_assignment
 
 
-def _sample_rois_new(object_rois, region_rois, scores_object, scores_relationship,
+def _sample_rois(object_rois, region_rois, scores_object, scores_relationship,
                      gt_objects, gt_relationships, gt_regions, num_images, n_classes_obj, n_classes_pred):
     """Sample Object RoIs and Relationship phrase RoIs, comprising foreground and background
     examples.
     """
+    ipdb.set_trace()
     # -------- object overlap and other operations ---------
 
     # get fg object rois number
@@ -298,14 +300,17 @@ def _sample_rois_new(object_rois, region_rois, scores_object, scores_relationshi
     # ---------- get fg_phrase and bg_phrase ----------
 
     # get fg phrase inds
+    phrase_gt_assignment = phrase_overlaps.argmax(axis=1)
     fg_phrase_inds, fg_phrase_gt_assignment = _get_fg_phrase_inds(
         obj_gt_assignment, phrase_overlaps, subject_inds, object_inds, gt_relationships)
-    fg_phrase_labels = gt_regions[fg_phrase_gt_assignment, 4]
+    phrase_gt_assignment[fg_phrase_inds] = fg_phrase_gt_assignment
 
     # get fix number fg phrase
     fg_phrase_per_this_image = min(fg_phrase_rois_per_image, fg_phrase_inds.size)
     if fg_phrase_inds.size > 0:
         fg_phrase_inds = npr.choice(fg_phrase_inds, size=fg_phrase_per_this_image, replace=False)
+    fg_phrase_gt_assignment = phrase_gt_assignment[fg_phrase_inds]
+    fg_phrase_labels = gt_regions[fg_phrase_gt_assignment, 4]
     # get corresponding subect inds / object inds
     fg_sub_inds, fg_obj_inds = subject_inds[fg_phrase_inds], object_inds[fg_phrase_inds]
 
@@ -338,10 +343,10 @@ def _sample_rois_new(object_rois, region_rois, scores_object, scores_relationshi
 
     keep_object_inds = np.append(fg_object_inds, bg_object_inds)
     object_labels = obj_labels[keep_object_inds]
-    object_rois = object_rois[keep_object_inds]
+    object_labels[fg_object_inds.size:] = 0
 
     bbox_target_data_object = _compute_targets(
-        object_rois[:, 1:5], gt_objects[obj_gt_assignment[keep_object_inds], :4], object_labels)
+        object_rois[keep_object_inds][:, 1:5], gt_objects[obj_gt_assignment[keep_object_inds], :4], object_labels)
     bbox_targets_object, bbox_inside_weights_object = \
         _get_bbox_regression_labels(bbox_target_data_object, n_classes_obj)
 
@@ -392,7 +397,7 @@ def _sample_rois_new(object_rois, region_rois, scores_object, scores_relationshi
     mat_object = _get_mat_object(
         keep_object_inds, fg_sub_inds, fg_obj_inds, bg_sub_list, bg_obj_list, object_rois.shape[0])
 
-    return object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object,\
+    return object_labels, object_rois[keep_object_inds], bbox_targets_object, bbox_inside_weights_object,\
            phrase_labels, phrase_rois, bbox_targets_phrase, bbox_inside_weights_phrase, mat_object
 
 

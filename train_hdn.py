@@ -51,7 +51,7 @@ parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Loca
 parser.add_argument('--model_name', type=str, default='HDN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
 parser.add_argument('--optimizer', type=int, default=2, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
-parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
+parser.add_argument('--evaluate', default=False, help='Only use the testing mode')
 parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
 parser.add_argument('--use_predicate_boxes', default=False, help='Check if predicate boxes match gt relationship or not')
 
