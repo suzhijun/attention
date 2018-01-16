@@ -10,7 +10,7 @@ import numpy as np
 import numpy.random as npr
 import torch
 from torch.autograd import Variable
-import ipdb
+# import ipdb
 
 from ..utils.cython_bbox import bbox_overlaps, bbox_intersections
 from ..utils.make_cover import compare_rel_rois
@@ -21,7 +21,7 @@ from ..fast_rcnn.bbox_transform import bbox_transform
 
 # <<<< obsolete
 
-DEBUG = True
+DEBUG = False
 
 
 def proposal_target_layer(object_rois, region_rois, scores_object, scores_relationship,
@@ -235,7 +235,7 @@ def _sample_rois(object_rois, region_rois, scores_object, scores_relationship,
     """Sample Object RoIs and Relationship phrase RoIs, comprising foreground and background
     examples.
     """
-    ipdb.set_trace()
+    # ipdb.set_trace()
     # -------- object overlap and other operations ---------
 
     # get fg object rois number

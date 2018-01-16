@@ -132,11 +132,12 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
 
 	# get area of covers, relationship_rois, intersections
 	proposals_area = get_area(rel_proposals[:, 1:])
-	relationship_area = get_area(rel_relationship[:, 1:])
+	# relationship_area = get_area(rel_relationship[:, 1:])
 	intersections_area = get_area(intersections)
 
 	# calculate IoU between predict sbj-obj pair and predict relationship proposals
-	overlap = intersections_area/(proposals_area+relationship_area-intersections_area)
+	overlap = intersections_area/proposals_area
+	# overlap = intersections_area/(proposals_area+relationship_area-intersections_area)
 	if TIME_IT:
 		print('\t[overlap ratio]: %.3fs'%timer.toc(average=False))
 

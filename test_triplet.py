@@ -43,7 +43,7 @@ def main():
 	global args
 	print "Loading training set and testing set..."
 	# train_set = visual_genome(args.dataset_option, 'train')
-	test_set = visual_genome('normal', 'train')
+	test_set = visual_genome('normal', 'test')
 	# print test_set.num_object_classes
 	# print test_set.num_predicate_classes
 	print "Done."
@@ -79,7 +79,7 @@ def test(test_loader, target_net):
 	fg_object = 0
 	cover_gt = 0
 	object_gt = 0
-	num = 0
+	# num = 0
 	end = time.time()
 	for i, (im_data, im_info, gt_objects, gt_relationships, gt_boxes_relationship) in enumerate(test_loader):
 		# num += 1
@@ -99,8 +99,8 @@ def test(test_loader, target_net):
 
 		# subject_id, object_id, relationship_cover: Variable
 		subject_id, object_id, relationship_cover = compare_rel_rois(
-			object_rois, relationship_rois, scores_object, scores_relationship,
-			topN_obj=object_rois.size()[0], topN_rel=relationship_rois.size()[0], obj_rel_thresh=0.6, max_objects=15, topN_covers=2048, cover_thresh=0.6)
+			object_rois.data.cpu().numpy(), relationship_rois.data.cpu().numpy(), scores_object, scores_relationship,
+			topN_obj=300, topN_rel=relationship_rois.size(0), obj_rel_thresh=0.7, max_objects=15, topN_covers=2016, cover_thresh=0.6)
 
 		# print('relationship_cover size', relationship_cover.size())
 		# unique_obj = np.unique(np.append(subject_id.cpu().numpy(), object_id.cpu().numpy()))
@@ -137,9 +137,9 @@ def test(test_loader, target_net):
 		# subject_inds = np.append(subject_id, gt_rel_sub_idx)
 		# object_inds = np.append(object_id, gt_rel_obj_idx)
 		cover_obj_check = check_obj_rel_recall(gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_boxes_relationship.numpy()[0],
-											   relationship_cover.data.cpu().numpy(), object_rois.data.cpu().numpy(),
+											   relationship_cover, object_rois.data.cpu().numpy(),
 											   # all_rois_phrase, all_rois,
-											   subject_id.cpu().numpy(), object_id.cpu().numpy(),
+											   subject_id, object_id,
 											   # subject_inds, object_inds,
 											   cover_thresh=0.5, object_thresh=0.5, log=False)
 		cover_gt_cnt += cover_obj_check[0]
@@ -181,16 +181,16 @@ def test(test_loader, target_net):
 
 		box_num[0] += object_rois.size(0)
 		box_num[1] += relationship_rois.size(0)
-		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects.numpy()[0], 256, thresh=0.5)
-		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship.numpy()[0], 96, thresh=0.5)
+		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects.numpy()[0], 300, thresh=0.5)
+		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship.numpy()[0], relationship_rois.size(0), thresh=0.6)
 		correct_cnt += correct_cnt_t
 		total_cnt += total_cnt_t
 		batch_time.update(time.time()-end)
 		end = time.time()
 		if (i+1)%100 == 0 and i > 0:
 			print('([{0}/{10}]  Time: {1:2.3f}s/img).\n'
-				  '[object] Avg: {2:2.2f} Boxes/im, Top-256 recall: {3:2.3f} ({4:d}/{5:d})\n'
-				  '[relationship] Avg: {6:2.2f} Boxes/im, Top-96 recall: {7:2.3f} ({8:d}/{9:d})'.format(
+				  '[object] Avg: {2:2.2f} Boxes/im, Top-300 recall: {3:2.3f} ({4:d}/{5:d})\n'
+				  '[relationship] Avg: {6:2.2f} Boxes/im, Top-all recall: {7:2.3f} ({8:d}/{9:d})'.format(
 				i+1, batch_time.avg,
 				box_num[0]/float(i+1), correct_cnt[0]/float(total_cnt[0])*100, correct_cnt[0], total_cnt[0],
 				box_num[1]/float(i+1), correct_cnt[1]/float(total_cnt[1])*100, correct_cnt[1], total_cnt[1],
@@ -198,7 +198,7 @@ def test(test_loader, target_net):
 			print('[relationship_cover number]: {0}\n'
 				  '[cover vs gt_relationship_boxes average recall]: {1:.3f}\n'
 				  '[cover & sub & obj vs gt_relationship_boxes average recall]: {2:.3f}').format(
-				relationship_cover.size()[0], cover_cnt/float(total_cnt[1])*100, cover_gt_cnt/float(total_cnt[1])*100)
+				relationship_cover.shape[0], cover_cnt/float(total_cnt[1])*100, cover_gt_cnt/float(total_cnt[1])*100)
 			print('average fg_cover: {0:.2f}'
 				  '\taverage fg_object: {1:.2f}'
 				  '\taverage cover_gt: {2:.2f}'
