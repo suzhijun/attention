@@ -176,8 +176,6 @@ def check_obj_rel_recall(gt_objects, gt_relationships, gt_boxes_relationship, re
     logger = logging.getLogger('check_rel')
     if log:
         logging.basicConfig(level=logging.INFO)
-    # get subject id and object id of each gt_relationship
-    gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships > 0)  # ground truth number
 
     # compute the overlap between object_rois and gt_objects
     obj_overlaps = bbox_overlaps(np.ascontiguousarray(obj_rois[:, 1:], dtype=np.float),
@@ -214,10 +212,13 @@ def check_obj_rel_recall(gt_objects, gt_relationships, gt_boxes_relationship, re
     subject_selected = subject_inds[selected_rel_cover_inds]
     object_selected = object_inds[selected_rel_cover_inds]
 
+    # get subject id and object id of each gt_relationship
+    gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships > 0)  # ground truth number
+
     # get region keep inds
     fg_cover_bool = np.logical_and(
-        np.logical_and(obj_gt_assignment[subject_selected], gt_rel_sub_idx[rel_gt_assignment]),
-        np.logical_and(obj_gt_assignment[object_selected], gt_rel_obj_idx[rel_gt_assignment]))
+        (obj_gt_assignment[subject_selected] == gt_rel_sub_idx[rel_gt_assignment]),
+        (obj_gt_assignment[object_selected] == gt_rel_obj_idx[rel_gt_assignment]))
     bg_cover_part = np.logical_not(fg_cover_bool)
     rel_overlaps[selected_rel_cover_inds[bg_cover_part], rel_gt_assignment[bg_cover_part]] = 0
 

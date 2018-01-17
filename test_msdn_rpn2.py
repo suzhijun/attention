@@ -110,7 +110,8 @@ def main():
     # train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
     net = RPN(not args.use_normal_anchors)
-    network.load_net('./output/RPN/RPN_region_full_best.h5', net)
+    network.load_net('/home/afanti/liya/scene_graph/origin-MSDN/MSDN/output/HDN/HDN_1_iters_alt_normal_I_LSTM_with_bias_with_dropout_0_5_nembed_256_nhidden_512_with_region_regression_resume_SGD_best.h5', net)
+    # network.load_net('./output/RPN/RPN_region_full_best.h5', net)
     # network.set_trainable(net.features, requires_grad=False)
     net.cuda()
 

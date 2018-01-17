@@ -10,7 +10,7 @@ import numpy as np
 import numpy.random as npr
 import torch
 from torch.autograd import Variable
-import ipdb
+# import ipdb
 
 from ..utils.cython_bbox import bbox_overlaps, bbox_intersections
 from ..utils.make_cover import compare_rel_rois
@@ -121,7 +121,6 @@ def proposal_target_layer(object_rois, region_rois, scores_object, scores_relati
         # print 'object num bg: {}'.format((object_labels == 0).sum())
         # print 'relationship num fg: {}'.format((phrase_labels > 0).sum())
         # print 'relationship num bg: {}'.format((phrase_labels == 0).sum())
-        print(object_labels)
         count = 1
         fg_num = np.where(object_labels > 0)[0].size
         bg_num = np.where(object_labels == 0)[0].size
@@ -215,8 +214,8 @@ def _get_fg_phrase_inds(obj_gt_assignment, phrase_overlaps, subject_inds, object
 
     # keep these phrase whose subject, object both assigned to right ground truth object
     selected_fg_phrase_inds = np.logical_and(
-        np.logical_and(obj_gt_assignment[subject_selected], gt_phrase_sub_idx[phrase_gt_assignment]),
-        np.logical_and(obj_gt_assignment[object_selected], gt_phrase_obj_idx[phrase_gt_assignment]))
+        (obj_gt_assignment[subject_selected] == gt_phrase_sub_idx[phrase_gt_assignment]),
+        (obj_gt_assignment[object_selected] == gt_phrase_obj_idx[phrase_gt_assignment]))
     # set phrase_overlaps of these FALSE phrase to zeros
     selected_bg_phrase_inds = np.logical_not(selected_fg_phrase_inds)
     phrase_overlaps[selected_phrase_rois_inds[selected_bg_phrase_inds],
@@ -235,7 +234,7 @@ def _sample_rois(object_rois, region_rois, scores_object, scores_relationship,
     """Sample Object RoIs and Relationship phrase RoIs, comprising foreground and background
     examples.
     """
-    ipdb.set_trace()
+    # ipdb.set_trace()
     # -------- object overlap and other operations ---------
 
     # get fg object rois number
@@ -267,7 +266,7 @@ def _sample_rois(object_rois, region_rois, scores_object, scores_relationship,
     region_overlaps = bbox_overlaps(
         np.ascontiguousarray(region_rois[:, 1:5], dtype=np.float),
         np.ascontiguousarray(gt_regions[:, :4], dtype=np.float))
-    keep_fg_region = region_overlaps.max(axis=1) >= cfg.TRAIN.MPN_FG_THRESH_REGION
+    keep_fg_region_inds = np.where(region_overlaps.max(axis=1) >= cfg.TRAIN.MPN_FG_THRESH_REGION)[0]
 
     # ---------- get all possible triplet ------------
     # by fg object rois and fg region rois
@@ -277,9 +276,9 @@ def _sample_rois(object_rois, region_rois, scores_object, scores_relationship,
     # note: subject_ids/object_ids need to be paired to get all sub-obj and obj-sub combination
     # value of subject/object_ids range from 0 to number of fg_object
     subject_ids, object_ids, phrase_rois = \
-        compare_rel_rois(object_rois[fg_object_inds], region_rois[keep_fg_region],
-                         scores_object[fg_object_inds], scores_relationship[keep_fg_region],
-                         topN_obj=fg_object_inds.size, topN_rel=region_rois.shape[0],
+        compare_rel_rois(object_rois[fg_object_inds], region_rois[keep_fg_region_inds],
+                         scores_object[fg_object_inds], scores_relationship[keep_fg_region_inds],
+                         topN_obj=fg_object_inds.size, topN_rel=keep_fg_region_inds.size,
                          obj_rel_thresh=cfg.TRAIN.MPN_OBJ_REL_THRESH, max_objects=fg_object_inds.size,
                          topN_covers=None, cover_thresh=cfg.TRAIN.MPN_MAKE_COVER_THRESH)
     # mapping subject/object_ids to original object rois index
@@ -296,6 +295,27 @@ def _sample_rois(object_rois, region_rois, scores_object, scores_relationship,
     subject_inds, object_inds = np.append(subject_inds, object_inds), np.append(object_inds, subject_inds)
     phrase_rois = np.vstack((phrase_rois, phrase_rois))
     phrase_overlaps = np.vstack((phrase_overlaps, phrase_overlaps))
+
+    if DEBUG:
+        pairs = np.vstack((subject_inds, object_inds)).T
+        gt_rels = np.where(gt_relationships > 0)
+        gt_pairs = np.vstack((gt_rels[0] + object_rois.shape[0] - gt_objects.shape[0],
+                              gt_rels[1] + object_rois.shape[0] - gt_objects.shape[0])).T
+        recall_gt_rel = 0
+        for i, gt_pair in enumerate(gt_pairs):
+            mapping_gt_bool = (gt_pair == pairs).all(axis=1)
+            if mapping_gt_bool.any():
+                recall_gt_rel += 1
+                mapping_cover_inds = np.where(mapping_gt_bool==True)[0]
+                print('gt_rel_box', i, gt_regions[i])
+                print('cover', mapping_cover_inds, phrase_rois[mapping_gt_bool])
+                mapping_overlaps = \
+                    bbox_overlaps(
+                        np.ascontiguousarray(phrase_rois[mapping_cover_inds, 1:], dtype=np.float),
+                        np.ascontiguousarray(gt_regions[:, :4], dtype=np.float))
+                print('mpping_overlaps', mapping_overlaps)
+        print('gt_relationship', gt_rels[0].size)
+        print('recall_gt_rel', recall_gt_rel)
 
     # ---------- get fg_phrase and bg_phrase ----------
 
