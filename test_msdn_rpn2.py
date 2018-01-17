@@ -110,12 +110,13 @@ def main():
     # train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
     net = RPN(not args.use_normal_anchors)
-    network.load_net('/home/afanti/liya/scene_graph/origin-MSDN/MSDN/output/HDN/HDN_1_iters_alt_normal_I_LSTM_with_bias_with_dropout_0_5_nembed_256_nhidden_512_with_region_regression_resume_SGD_best.h5', net)
+    # network.load_net('/home/afanti/liya/scene_graph/origin-MSDN/MSDN/output/HDN/HDN_1_iters_alt_normal_I_LSTM_with_bias_with_dropout_0_5_nembed_256_nhidden_512_with_region_regression_resume_SGD_best.h5', net)
+    network.load_net('./output/HDN/HDN_2_iters_alt_normal_no_caption_SGD_best.h5', net)
     # network.load_net('./output/RPN/RPN_region_full_best.h5', net)
     # network.set_trainable(net.features, requires_grad=False)
     net.cuda()
 
-    best_recall = np.array([0.0, 0.0])
+    # best_recall = np.array([0.0, 0.0])
 
     # Testing
     recall = test(test_loader, net)
@@ -146,7 +147,7 @@ def test(test_loader, target_net):
         # Forward pass
 
         object_rois, relationship_rois = target_net(im_data, im_info.numpy(), gt_objects.numpy(),
-                                                    gt_boxes_relationship.numpy())[1:]
+                                                    gt_boxes_relationship.numpy())[1:3]
         # all_rois = object_rois.data.cpu().numpy()
         # zeros = np.zeros((gt_objects.numpy().shape[1], 1), dtype=gt_objects.numpy().dtype)
         # # add gt_obj to predict_rois
@@ -160,7 +161,7 @@ def test(test_loader, target_net):
         # relationship_rois = enlarge_rois_clip(relationship_rois[:, 1:5], 1.2, img_shape)
         # obj_in_predicate(object_rois, relationship_rois, 9)
         object_cnt_t, cover_cnt_t, cnt_gt_t = check_msdn_rpn(
-            object_rois.data.cpu().numpy(), gt_objects.numpy()[0], gt_relationships.numpy()[0])
+            object_rois.data.cpu().numpy()[:64], gt_objects.numpy()[0], gt_relationships.numpy()[0])
         object_cnt += object_cnt_t
         cover_cnt += cover_cnt_t
         cnt_gt += cnt_gt_t
@@ -168,10 +169,10 @@ def test(test_loader, target_net):
         box_num[0] += object_rois.size(0)
         box_num[1] += relationship_rois.size(0)
         correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects[0].numpy(), object_rois.size(0),
-                                                        thres=0.5)
+                                                        thresh=0.5)
 
         correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship[0].numpy(), 64,
-                                                        thres=0.5)
+                                                        thresh=0.5)
         correct_cnt += correct_cnt_t
         total_cnt += total_cnt_t
         batch_time.update(time.time() - end)

@@ -2,7 +2,7 @@ import os
 import torch
 import numpy as np
 import time
-import ipdb
+# import ipdb
 from faster_rcnn import network
 from faster_rcnn.RPN import RPN  # Hierarchical_Descriptive_Model
 from faster_rcnn.utils.timer import Timer
@@ -99,11 +99,23 @@ def test(test_loader, target_net):
 		# obj_in_predicate(object_rois, relationship_rois, 9)
 
 		# subject_id, object_id, relationship_cover: Variable
-		ipdb.set_trace()
+		# ipdb.set_trace()
 		subject_id, object_id, relationship_cover = compare_rel_rois(
 			object_rois.data.cpu().numpy(), relationship_rois.data.cpu().numpy(), scores_object, scores_relationship,
-			topN_obj=256, topN_rel=96,
-			obj_rel_thresh=0.6, max_objects=15, topN_covers=2048, cover_thresh=0.6)
+			topN_obj=object_rois.size(0), topN_rel=relationship_rois.size(0),
+			obj_rel_thresh=0.7, max_objects=15, topN_covers=2016, cover_thresh=0.7)
+
+		cover_obj_check = check_obj_rel_recall(gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_boxes_relationship.numpy()[0],
+											   relationship_cover, object_rois.data.cpu().numpy(),
+											   # all_rois_phrase, all_rois,
+											   subject_id, object_id,
+											   # subject_inds, object_inds,
+											   cover_thresh=0.5, object_thresh=0.5, log=False)
+		cover_gt_cnt += cover_obj_check[0]
+		fg_cover += cover_obj_check[1]
+		fg_object += cover_obj_check[2]
+		cover_gt += cover_obj_check[3]
+		object_gt += cover_obj_check[4]
 
 		# print('relationship_cover size', relationship_cover.size())
 		# unique_obj = np.unique(np.append(subject_id.cpu().numpy(), object_id.cpu().numpy()))
@@ -139,17 +151,6 @@ def test(test_loader, target_net):
 		# gt_rel_sub_idx, gt_rel_obj_idx = gt_rel_sub_idx + object_rois.size()[0], gt_rel_obj_idx + object_rois.size()[0]
 		# subject_inds = np.append(subject_id, gt_rel_sub_idx)
 		# object_inds = np.append(object_id, gt_rel_obj_idx)
-		cover_obj_check = check_obj_rel_recall(gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_boxes_relationship.numpy()[0],
-											   relationship_cover, object_rois.data.cpu().numpy()[:256, :],
-											   # all_rois_phrase, all_rois,
-											   subject_id, object_id,
-											   # subject_inds, object_inds,
-											   cover_thresh=0.5, object_thresh=0.5, log=False)
-		cover_gt_cnt += cover_obj_check[0]
-		fg_cover += cover_obj_check[1]
-		fg_object += cover_obj_check[2]
-		cover_gt += cover_obj_check[3]
-		object_gt += cover_obj_check[4]
 
 		# test
 		# object_labels, object_rois_pro, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
@@ -184,8 +185,8 @@ def test(test_loader, target_net):
 
 		box_num[0] += object_rois.size(0)
 		box_num[1] += relationship_rois.size(0)
-		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects.numpy()[0], 256, thresh=0.5)
-		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship.numpy()[0], 96, thresh=0.5)
+		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects.numpy()[0], 300, thresh=0.5)
+		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship.numpy()[0], 128, thresh=0.6)
 		correct_cnt += correct_cnt_t
 		total_cnt += total_cnt_t
 		batch_time.update(time.time()-end)

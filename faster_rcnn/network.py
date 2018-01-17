@@ -62,6 +62,7 @@ def load_net(fname, net):
     import h5py
     h5f = h5py.File(fname, mode='r')
     for k, v in net.state_dict().items():
+        k = 'rpn.' + k
         if k in h5f:
             param = torch.from_numpy(np.asarray(h5f[k]))
             try:
