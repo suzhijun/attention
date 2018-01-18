@@ -103,7 +103,7 @@ def test(test_loader, target_net):
 		subject_id, object_id, relationship_cover = compare_rel_rois(
 			object_rois.data.cpu().numpy(), relationship_rois.data.cpu().numpy(), scores_object, scores_relationship,
 			topN_obj=object_rois.size(0), topN_rel=relationship_rois.size(0),
-			obj_rel_thresh=0.7, max_objects=15, topN_covers=2016, cover_thresh=0.7)
+			obj_rel_thresh=0.6, max_objects=18, topN_covers=2016, cover_thresh=0.6)
 
 		cover_obj_check = check_obj_rel_recall(gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_boxes_relationship.numpy()[0],
 											   relationship_cover, object_rois.data.cpu().numpy(),
@@ -185,7 +185,7 @@ def test(test_loader, target_net):
 
 		box_num[0] += object_rois.size(0)
 		box_num[1] += relationship_rois.size(0)
-		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects.numpy()[0], 300, thresh=0.5)
+		correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects.numpy()[0], 200, thresh=0.5)
 		correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship.numpy()[0], 128, thresh=0.6)
 		correct_cnt += correct_cnt_t
 		total_cnt += total_cnt_t
@@ -194,7 +194,7 @@ def test(test_loader, target_net):
 		if (i+1)%100 == 0 and i > 0:
 			print('([{0}/{10}]  Time: {1:2.3f}s/img).\n'
 				  '[object] Avg: {2:2.2f} Boxes/im, Top-256 recall: {3:2.3f} ({4:d}/{5:d})\n'
-				  '[relationship] Avg: {6:2.2f} Boxes/im, Top-96 recall: {7:2.3f} ({8:d}/{9:d})'.format(
+				  '[relationship] Avg: {6:2.2f} Boxes/im, Top-128 recall: {7:2.3f} ({8:d}/{9:d})'.format(
 				i+1, batch_time.avg,
 				box_num[0]/float(i+1), correct_cnt[0]/float(total_cnt[0])*100, correct_cnt[0], total_cnt[0],
 				box_num[1]/float(i+1), correct_cnt[1]/float(total_cnt[1])*100, correct_cnt[1], total_cnt[1],

@@ -46,7 +46,7 @@ parser.add_argument('--use_kernel_function', action='store_true')
 # Environment Settings
 parser.add_argument('--train_all', default=True, help='Train all the mode')
 parser.add_argument('--seed', type=int, default=1, help='set seed to some constant value to reproduce experiments')
-parser.add_argument('--dataset_option', type=str, default='normal', help='The dataset to use (small | normal | fat)')
+parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
 parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Location to output the model')
 parser.add_argument('--model_name', type=str, default='HDN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')

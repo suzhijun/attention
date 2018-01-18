@@ -189,7 +189,7 @@ def check_obj_rel_recall(gt_objects, gt_relationships, gt_boxes_relationship, re
     logger.info('left all: %d', len(np.where(obj_overlaps >= object_thresh)[0]))
 
     # overlaps between relationship cover and gt_relationship
-    rel_overlaps = bbox_overlaps(np.ascontiguousarray(rel_covers[:,1:], dtype=np.float),
+    rel_overlaps = bbox_overlaps(np.ascontiguousarray(rel_covers, dtype=np.float),
                                  np.ascontiguousarray(gt_boxes_relationship[:,:4], dtype=np.float))
     # get sub_obj and obj_sub combination
     subject_inds, object_inds = np.append(subject_inds, object_inds), np.append(object_inds, subject_inds)

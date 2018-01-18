@@ -80,95 +80,131 @@ def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relat
 	ob_i = ob_i.reshape(-1)
 	ob_j = ob_j.reshape(-1)
 	keep_obj_id = np.where((ob_i > -1) & (ob_j > -1))
-	ob_i = ob_i[keep_obj_id]
-	ob_j = ob_j[keep_obj_id]
-	rel_id = rel_id[keep_obj_id]
+	ob_i = ob_i[keep_obj_id].astype(int)
+	ob_j = ob_j[keep_obj_id].astype(int)
+	rel_id = rel_id[keep_obj_id].astype(int)
 	# sub_t, obj_t, rel_t = test(rel_obj_index)
 	if TIME_IT:
 		print('\t[make pair]: %.3fs'%timer.toc(average=False))
 
 	timer.tic()
-	stack_ids = np.vstack([ob_i, ob_j, rel_id]).T
-	tmp = stack_ids[:, 0]+stack_ids[:, 1]*1j
-	id_stack_ids = np.unique(tmp, return_index=True)[1]
-	stack_ids = stack_ids[id_stack_ids]
-
-	subject_id = stack_ids[:, 0].astype(int)
-	object_id = stack_ids[:, 1].astype(int)
-	relationship_id = stack_ids[:, 2].astype(int)
-	# subject_id = torch.from_numpy(stack_ids[:, 0].astype('int'))
-	# object_id = torch.from_numpy(stack_ids[:, 1].astype('int'))
-	# relationship_id = torch.from_numpy(stack_ids[:, 2].astype('int'))
-
-	if TIME_IT:
-		print('\t[unique & to tensor]: %.3fs'%timer.toc(average=False))
-
-	timer.tic()
-	# reflect to rois
-	rel_subject = object_rois[subject_id, :]
-	# rel_subject = torch.index_select(object_rois, 0, subject_id).data
-	score_sbj = scores_object[subject_id]
-	rel_object = object_rois[object_id, :]
-	# rel_object = torch.index_select(object_rois, 0, object_id).data
-	score_obj = scores_object[object_id]
-	# score_obj = scores_object[object_id.cpu().numpy()]
-	rel_relationship = relationship_rois[relationship_id, :]
-	# rel_relationship = torch.index_select(relationship_rois, 0, relationship_id).data
-	score_rel = scores_relationship[relationship_id]
-
-	score_cover = score_sbj*score_obj*score_rel
-	score_cover = score_cover.reshape(-1)
-	if TIME_IT:
-		print('\t[select & score]: %.3fs'%timer.toc(average=False))
-
-	timer.tic()
-	# get covers
-	rel_proposals = np.hstack((np.zeros([rel_object.shape[0], 1]),
-							   np.minimum(rel_subject[:, 1:3], rel_object[:, 1:3]),
-							   np.maximum(rel_subject[:, 3:], rel_object[:, 3:])))
-
-	# return subject_id, object_id, rel_proposals
+	instance_covers = np.hstack((np.minimum(object_rois[ob_i][:, 1:3], object_rois[ob_j][:, 1:3]),
+							   np.maximum(object_rois[ob_i][:, 3:], object_rois[ob_j][:, 3:])))
 
 	# get intersections between covers and relationship_rois
-	intersections = np.hstack((np.maximum(rel_proposals[:, 1:3], rel_relationship[:, 1:3]),
-							   np.minimum(rel_proposals[:, 3:], rel_relationship[:, 3:])))
+	intersections = np.hstack((np.maximum(instance_covers[:, :2], relationship_rois[rel_id][:, 1:3]),
+							   np.minimum(instance_covers[:, 2:], relationship_rois[rel_id][:, 3:])))
+
+	instance_cover_inds = np.arange(instance_covers.shape[0])
 
 	# get area of covers, relationship_rois, intersections
-	proposals_area = get_area(rel_proposals[:, 1:])
+	instance_cover_area = get_area(instance_covers)
 	# relationship_area = get_area(rel_relationship[:, 1:])
 	intersections_area = get_area(intersections)
+	overlaps = intersections_area/instance_cover_area
 
-	# calculate IoU between predict sbj-obj pair and predict relationship proposals
-	overlap = intersections_area/proposals_area  # (proposals_area+relationship_area-intersections_area)
-	if TIME_IT:
-		print('\t[overlap ratio]: %.3fs'%timer.toc(average=False))
+	fg_cover_inds = np.where(overlaps >= cover_thresh)[0]
 
-	# score_cover = score_cover.mul(overlap.data)
-	timer.tic()
-	keep_ind = overlap > cover_thresh
-	# np_keep = keep_ind.data.cpu().numpy()
-	# print('after compared with relationship_rois left pairs num', np.count_nonzero(np_keep))
-	# keep_ind is ByteTensor, ByteTensor.sum() > 255, so overflow
+	instance_cover_inds = instance_cover_inds[fg_cover_inds]
+	overlaps = overlaps[fg_cover_inds]
+	ob_i = ob_i[fg_cover_inds]
+	ob_j = ob_j[fg_cover_inds]
+	index = np.argsort(overlaps)
+	instance_cover_inds = instance_cover_inds[index]
+	ob_i = ob_i[index]
+	ob_j = ob_j[index]
+	rel_id = rel_id[index]
 
-	subject_id = subject_id[keep_ind]
-	object_id = object_id[keep_ind]
+	stack_ids = np.vstack([ob_i, ob_j, rel_id, instance_cover_inds]).T
+	# tmp = stack_ids[:, 0] + stack_ids[:, 1]*1j
+	id_stack_ids = np.unique(stack_ids[:,:2], axis=0, return_index=True)[1]
+	stack_ids = stack_ids[np.sort(id_stack_ids)]
 
-	# expand keep_ind to (left_pairs_num, 5)
-	# rel_keep_ind = keep_ind.reshape(-1, 1)
-	# rel_keep_ind = rel_keep_ind.expand(rel_keep_ind.size()[0], 5)
-	# mask select left pairs
-	rel_proposals = rel_proposals[keep_ind, :]
+	subject_id = stack_ids[:, 0]
+	object_id = stack_ids[:, 1]
+	relationship_id = stack_ids[:, 2]
+	instance_cover_inds = stack_ids[:, 3]
 
-	score_cover = score_cover[keep_ind]
-	if topN_covers == None:
-		topN_covers = score_cover.size
+	score_sbj = scores_object[subject_id]
+	score_obj = scores_object[object_id]
+	score_rel = scores_relationship[relationship_id]
+	score_cover = (score_sbj*score_obj*score_rel).reshape(-1)
 	score_ind = (-score_cover).argsort()[:topN_covers]
 	subject_id = subject_id[score_ind]
 	object_id = object_id[score_ind]
-	rel_proposals = rel_proposals[score_ind]
+	instance_cover_inds = instance_cover_inds[score_ind]
 	if TIME_IT:
 		print('\t[select overlap]: %.3fs'%timer.toc(average=False))
-	return subject_id, object_id, rel_proposals
+	return subject_id, object_id, instance_covers[instance_cover_inds]
+	#
+	# if TIME_IT:
+	# 	print('\t[unique & to tensor]: %.3fs'%timer.toc(average=False))
+	#
+	# timer.tic()
+	# # reflect to rois
+	# rel_subject = object_rois[subject_id, :]
+	# # rel_subject = torch.index_select(object_rois, 0, subject_id).data
+	# score_sbj = scores_object[subject_id]
+	# rel_object = object_rois[object_id, :]
+	# # rel_object = torch.index_select(object_rois, 0, object_id).data
+	# score_obj = scores_object[object_id]
+	# # score_obj = scores_object[object_id.cpu().numpy()]
+	# rel_relationship = relationship_rois[relationship_id, :]
+	# # rel_relationship = torch.index_select(relationship_rois, 0, relationship_id).data
+	# score_rel = scores_relationship[relationship_id]
+	#
+	# score_cover = score_sbj*score_obj*score_rel
+	# score_cover = score_cover.reshape(-1)
+	# if TIME_IT:
+	# 	print('\t[select & score]: %.3fs'%timer.toc(average=False))
+	#
+	# timer.tic()
+	# # get covers
+	# rel_proposals = np.hstack((np.zeros([rel_object.shape[0], 1]),
+	# 						   np.minimum(rel_subject[:, 1:3], rel_object[:, 1:3]),
+	# 						   np.maximum(rel_subject[:, 3:], rel_object[:, 3:])))
+	#
+	#
+	# # get intersections between covers and relationship_rois
+	# intersections = np.hstack((np.maximum(rel_proposals[:, 1:3], rel_relationship[:, 1:3]),
+	# 						   np.minimum(rel_proposals[:, 3:], rel_relationship[:, 3:])))
+	#
+	# # get area of covers, relationship_rois, intersections
+	# proposals_area = get_area(rel_proposals[:, 1:])
+	# # relationship_area = get_area(rel_relationship[:, 1:])
+	# intersections_area = get_area(intersections)
+	#
+	# # calculate IoU between predict sbj-obj pair and predict relationship proposals
+	# overlap = intersections_area/proposals_area  # (proposals_area+relationship_area-intersections_area)
+	# if TIME_IT:
+	# 	print('\t[overlap ratio]: %.3fs'%timer.toc(average=False))
+	#
+	# # score_cover = score_cover.mul(overlap.data)
+	# timer.tic()
+	# keep_ind = overlap > cover_thresh
+	# # np_keep = keep_ind.data.cpu().numpy()
+	# # print('after compared with relationship_rois left pairs num', np.count_nonzero(np_keep))
+	# # keep_ind is ByteTensor, ByteTensor.sum() > 255, so overflow
+	#
+	# subject_id = subject_id[keep_ind]
+	# object_id = object_id[keep_ind]
+	#
+	# # expand keep_ind to (left_pairs_num, 5)
+	# # rel_keep_ind = keep_ind.reshape(-1, 1)
+	# # rel_keep_ind = rel_keep_ind.expand(rel_keep_ind.size()[0], 5)
+	# # mask select left pairs
+	# rel_proposals = rel_proposals[keep_ind, :]
+	#
+	# score_cover = score_cover[keep_ind]
+	# if topN_covers == None:
+	# 	topN_covers = score_cover.size
+	# score_ind = (-score_cover).argsort()[:topN_covers]
+	# subject_id = subject_id[score_ind]
+	# object_id = object_id[score_ind]
+	# rel_proposals = rel_proposals[score_ind]
+	# if TIME_IT:
+	# 	print('\t[select overlap]: %.3fs'%timer.toc(average=False))
+	# return subject_id, object_id, rel_proposals
 
 
 # def compare_rel_rois(object_rois, relationship_rois, scores_object, scores_relationship,
