@@ -83,13 +83,12 @@ class HDN_base(nn.Module):
         self.fc7_obj.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
         self.fc7_phrase.fc.weight.data.copy_(vgg16.classifier[3].weight.data[:self.nhidden, :self.nhidden] * weight_multiplier)
         self.fc7_phrase.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
-        # network.weights_normal_init(self.caption_prediction, 0.01)
         print 'Done.'
 
 
     @property
     def loss(self):
-        return self.pre_mps_cross_entropy_object + self.loss_obj_box + self.pre_mps_cross_entropy_predicate \
+        return 4*self.pre_mps_cross_entropy_object + self.loss_obj_box + self.pre_mps_cross_entropy_predicate \
                + self.post_mps_cross_entropy_object*2 + self.post_mps_cross_entropy_predicate*2
     
 

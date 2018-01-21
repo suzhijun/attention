@@ -75,19 +75,17 @@ def get_model_name(arguments):
 
 
 def group_features(net_):
-    vgg_features_fix = list(net_.rpn.features.parameters())[:8]
-    vgg_features_var = list(net_.rpn.features.parameters())[8:]
+    # vgg_features_fix = list(net_.rpn.features.parameters())[:8]
+    # vgg_features_var = list(net_.rpn.features.parameters())[8:]
+    vgg_features = list(net_.rpn.features.parameters())
     vgg_feature_len = len(list(net_.rpn.features.parameters()))
     rpn_feature_len = len(list(net_.rpn.parameters())) - vgg_feature_len
     rpn_features = list(net_.rpn.parameters())[vgg_feature_len:]
-    # language_features = list(net_.caption_prediction.parameters())
-    # language_feature_len = len(language_features)
     hdn_features = list(net_.parameters())[(rpn_feature_len + vgg_feature_len):]
     print 'vgg feature length:', vgg_feature_len
     print 'rpn feature length:', rpn_feature_len
     print 'HDN feature length:', len(hdn_features)
-    # print 'language_feature_len:', language_feature_len
-    return vgg_features_fix, vgg_features_var, rpn_features, hdn_features
+    return vgg_features, rpn_features, hdn_features
 
 
 

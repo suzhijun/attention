@@ -17,18 +17,18 @@ from faster_rcnn.utils.HDN_utils import get_model_name, group_features
 
 
 TIME_IT = cfg.TIME_IT
-# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive Model in pytorch')
 
 # Training parameters
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
 parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
-parser.add_argument('--log_interval', type=int, default=100, help='Interval for Logging')
+parser.add_argument('--log_interval', type=int, default=1000, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
-parser.add_argument('--resume_model', default=True, help='Resume model from the entire model')
+parser.add_argument('--resume_model', default=False, help='Resume model from the entire model')
 parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alltrain_small_SGD_epoch_0.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
@@ -48,7 +48,6 @@ parser.add_argument('--nesterov', action='store_true', help='Set to use the nest
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
 parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
 parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
-parser.add_argument('--use_predicate_boxes', default=False, help='Check if predicate boxes match gt relationship or not')
 
 args = parser.parse_args()
 # Overall loss logger
@@ -94,7 +93,8 @@ def main():
 	print net
 
 	# To group up the features
-	vgg_features_fix, vgg_features_var, rpn_features, hdn_features = group_features(net)
+	# vgg_features_fix, vgg_features_var, rpn_features, hdn_features = group_features(net)
+	vgg_features_var, rpn_features, hdn_features = group_features(net)
 
 	# Setting the state of the training model
 	net.cuda()
