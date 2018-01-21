@@ -44,7 +44,7 @@ class HDN_base(nn.Module):
     MPS_iter_range = range(1, cfg.TRAIN.MAX_MPS_ITER_NUM + 1)
 
     def __init__(self, nhidden, n_object_cats, n_predicate_cats,  MPS_iter, object_loss_weight,
-                 predicate_loss_weight, dropout, use_region_reg=False):
+                 predicate_loss_weight, dropout):
 
         super(HDN_base, self).__init__()
         assert n_object_cats is not None and n_predicate_cats is not None
@@ -60,10 +60,12 @@ class HDN_base(nn.Module):
         self.nhidden = nhidden
 
         # loss
-        self.cross_entropy_object = None
-        self.cross_entropy_predicate = None
+        self.pre_mps_cross_entropy_object = None
+        self.pre_mps_cross_entropy_predicate = None
         self.loss_obj_box = None
-        self.loss_pred_box = None
+        self.post_mps_cross_entropy_object = None
+        self.post_mps_cross_entropy_predicate = None
+        # self.loss_pred_box = None
 
         self.timer = Timer()
 
@@ -87,8 +89,8 @@ class HDN_base(nn.Module):
 
     @property
     def loss(self):
-        return self.cross_entropy_object + self.loss_obj_box + \
-               self.cross_entropy_predicate * 1 + 0.5 * self.loss_pred_box
+        return self.pre_mps_cross_entropy_object + self.loss_obj_box + self.pre_mps_cross_entropy_predicate \
+               + self.post_mps_cross_entropy_object*2 + self.post_mps_cross_entropy_predicate*2
     
 
     def build_loss(self, cls_score, bbox_pred, roi_data, obj=False):
@@ -114,9 +116,8 @@ class HDN_base(nn.Module):
         else:
             tf = 0.
 
-        # print 'accuracy: %2.2f%%' % (((self.tp + self.tf) / float(fg_cnt + bg_cnt)) * 100)
-        cross_entropy = F.cross_entropy(cls_score, label, weight=ce_weights)
-
+        # cross_entropy = F.cross_entropy(cls_score, label, weight=ce_weights)
+        cross_entropy = F.cross_entropy(cls_score, label)
         # bounding box regression L1 loss
         bbox_targets, bbox_inside_weights, bbox_outside_weights = roi_data[2:]
 
@@ -144,26 +145,13 @@ class HDN_base(nn.Module):
         fg_cnt = torch.sum(labels.data.ne(0))
         bg_cnt = labels.data.numel() - fg_cnt
 
-        ce_weights = np.sqrt(self.predicate_loss_weight)
-        ce_weights[0] = float(fg_cnt) / (bg_cnt + 1e-5)
-        ce_weights = ce_weights.cuda()
-        # print '[relationship]:'
-        # print 'ce_weights:'
-        # print ce_weights
-        # print 'cls_score:'
-        # print cls_score 
-        # print 'labels'
-        # print labels
-        ce_weights = ce_weights.cuda()
-        cross_entropy = F.cross_entropy(cls_score, labels, weight=ce_weights)
-
+        # ce_weights = np.sqrt(self.predicate_loss_weight)
+        # ce_weights[0] = float(fg_cnt) / (bg_cnt + 1e-5)
+        # ce_weights = ce_weights.cuda()
+        # ce_weights = ce_weights.cuda()
+        # cross_entropy = F.cross_entropy(cls_score, labels, weight=ce_weights)
+        cross_entropy = F.cross_entropy(cls_score, labels)
         maxv, predict = cls_score.data.max(1)
-        # if DEBUG:
-        # print '[predicate]:'
-        # if predict.sum() > 0:
-        # print predict
-        # print 'labels'
-        # print labels
 
         if fg_cnt == 0:
             tp = 0

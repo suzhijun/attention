@@ -20,10 +20,10 @@ def get_model_name(arguments):
         arguments.model_name += '_{}_iters'.format(arguments.MPS_iter)
 
 
-    if arguments.use_kernel_function:
-        arguments.model_name += '_with_kernel'
+    # if arguments.use_kernel_function:
+    #     arguments.model_name += '_with_kernel'
     if arguments.load_RPN or arguments.resume_model:
-        arguments.model_name += '_alt'
+        arguments.model_name += '_alltrain'
     else:
         arguments.model_name += '_end2end'
     if arguments.dropout:

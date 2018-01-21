@@ -7,6 +7,7 @@ from faster_rcnn import network
 from faster_rcnn.RPN import RPN  # Hierarchical_Descriptive_Model
 from faster_rcnn.utils.timer import Timer
 from faster_rcnn.utils.HDN_utils import check_recall
+from faster_rcnn.utils.make_cover import get_pair
 
 from faster_rcnn.datasets.visual_genome_loader import visual_genome
 from faster_rcnn.fast_rcnn.config import cfg
@@ -160,15 +161,16 @@ def test(test_loader, target_net):
         # object_rois = object_rois[:, 1:5]
         # relationship_rois = enlarge_rois_clip(relationship_rois[:, 1:5], 1.2, img_shape)
         # obj_in_predicate(object_rois, relationship_rois, 9)
+        subject_id, object_id = get_pair(object_rois.data.cpu().numpy()[:128])
         object_cnt_t, cover_cnt_t, cnt_gt_t = check_msdn_rpn(
-            object_rois.data.cpu().numpy()[:64], gt_objects.numpy()[0], gt_relationships.numpy()[0])
+            object_rois.data.cpu().numpy()[:128], gt_objects.numpy()[0], gt_relationships.numpy()[0])
         object_cnt += object_cnt_t
         cover_cnt += cover_cnt_t
         cnt_gt += cnt_gt_t
         # gt_num = gt_boxes_relationship[0].size()[0]
         box_num[0] += object_rois.size(0)
         box_num[1] += relationship_rois.size(0)
-        correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects[0].numpy(), object_rois.size(0),
+        correct_cnt_t[0], total_cnt_t[0] = check_recall(object_rois, gt_objects[0].numpy(), 128,
                                                         thresh=0.5)
 
         correct_cnt_t[1], total_cnt_t[1] = check_recall(relationship_rois, gt_boxes_relationship[0].numpy(), 64,
@@ -179,8 +181,8 @@ def test(test_loader, target_net):
         end = time.time()
         if (i + 1) % 100 == 0 and i > 0:
             print('[{0}/{10}]  Time: {1:2.3f}s/img).'
-                  '\t[object] Avg: {2:2.2f} Boxes/im, Top-2000 recall: {3:2.3f} ({4:d}/{5:d})'
-                  '\t[relationship] Avg: {6:2.2f} Boxes/im, Top-500 recall: {7:2.3f} ({8:d}/{9:d})'.format(
+                  '\t[object] Avg: {2:2.2f} Boxes/im, Top-64 recall: {3:2.3f} ({4:d}/{5:d})'
+                  '\t[relationship] Avg: {6:2.2f} Boxes/im, Top-64 recall: {7:2.3f} ({8:d}/{9:d})'.format(
                 i + 1, batch_time.avg,
                 box_num[0] / float(i + 1), correct_cnt[0] / float(total_cnt[0]) * 100, correct_cnt[0], total_cnt[0],
                 box_num[1] / float(i + 1), correct_cnt[1] / float(total_cnt[1]) * 100, correct_cnt[1], total_cnt[1],

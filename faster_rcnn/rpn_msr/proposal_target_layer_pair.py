@@ -51,16 +51,6 @@ def proposal_target_layer(object_rois, region_rois, scores_object, scores_relati
     # Sample rois with classification labels and bounding box regression
     # targets
     if is_training:
-        # all_rois = object_rois
-        # zeros = torch.zeros(gt_objects.size()[0], 1).cuda()
-        # # add gt_obj to predict_rois
-        # all_rois = torch.cat(
-        #     (all_rois, Variable(torch.cat((zeros, gt_objects[:, :4].cuda()), dim=1))), dim=0)
-
-        # all_rois_region = region_rois
-        # zeros = torch.zeros(gt_regions.size()[0], 1).cuda()
-        # all_rois_region = torch.cat(
-        #     (all_rois_region, Variable(torch.cat((zeros, gt_regions[:, :4].cuda()), dim=1))), dim=0)
 
         all_rois = object_rois
         zeros = np.zeros((gt_objects.shape[0], 1), dtype=gt_objects.dtype)

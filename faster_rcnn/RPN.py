@@ -47,8 +47,8 @@ class RPN(nn.Module):
 	anchor_scales_normal = [4, 8, 16, 32, 64]
 	anchor_ratios_normal = [0.25, 0.5, 1, 2, 4]
 	# anchor_scales_normal_relationship = [4, 8, 16, 32, 64, 128, 256, 512]
-	anchor_scales_normal_relationship = [8, 16, 32, 64, 128]
-	anchor_ratios_normal_relationship = [0.25, 0.5, 1, 2, 4]
+	# anchor_scales_normal_relationship = [8, 16, 32, 64, 128]
+	# anchor_ratios_normal_relationship = [0.25, 0.5, 1, 2, 4]
 
 	def __init__(self, use_kmeans_anchors=True):
 		super(RPN, self).__init__()
@@ -57,25 +57,25 @@ class RPN(nn.Module):
 			print 'using k-means anchors'
 			self.anchor_scales = self.anchor_scales_kmeans
 			self.anchor_ratios = self.anchor_ratios_kmeans
-			self.anchor_scales_relationship, self.anchor_ratios_relationship = \
-				np.meshgrid(self.anchor_scales_normal_relationship, self.anchor_ratios_normal_relationship,
-							indexing='ij')
-			self.anchor_scales_relationship = self.anchor_scales_relationship.reshape(-1)
-			self.anchor_ratios_relationship = self.anchor_ratios_relationship.reshape(-1)
+			# self.anchor_scales_relationship, self.anchor_ratios_relationship = \
+			# 	np.meshgrid(self.anchor_scales_normal_relationship, self.anchor_ratios_normal_relationship,
+			# 				indexing='ij')
+			# self.anchor_scales_relationship = self.anchor_scales_relationship.reshape(-1)
+			# self.anchor_ratios_relationship = self.anchor_ratios_relationship.reshape(-1)
 		else:
 			print 'using normal anchors'
 			self.anchor_scales, self.anchor_ratios = \
 				np.meshgrid(self.anchor_scales_normal, self.anchor_ratios_normal, indexing='ij')
 			self.anchor_scales = self.anchor_scales.reshape(-1)
 			self.anchor_ratios = self.anchor_ratios.reshape(-1)
-			self.anchor_scales_relationship, self.anchor_ratios_relationship = \
-				np.meshgrid(self.anchor_scales_normal_relationship, self.anchor_ratios_normal_relationship,
-							indexing='ij')
-			self.anchor_scales_relationship = self.anchor_scales_relationship.reshape(-1)
-			self.anchor_ratios_relationship = self.anchor_ratios_relationship.reshape(-1)
+			# self.anchor_scales_relationship, self.anchor_ratios_relationship = \
+			# 	np.meshgrid(self.anchor_scales_normal_relationship, self.anchor_ratios_normal_relationship,
+			# 				indexing='ij')
+			# self.anchor_scales_relationship = self.anchor_scales_relationship.reshape(-1)
+			# self.anchor_ratios_relationship = self.anchor_ratios_relationship.reshape(-1)
 
 		self.anchor_num = len(self.anchor_scales)
-		self.anchor_num_relationship = len(self.anchor_scales_relationship)
+		# self.anchor_num_relationship = len(self.anchor_scales_relationship)
 
 		self.features = models.vgg16(pretrained=True).features
 		self.features.__delattr__('30') # to delete the max pooling
@@ -97,17 +97,17 @@ class RPN(nn.Module):
 		# self.score_conv_obj = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
 		# self.bbox_conv_obj = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 		#
-		self.conv1_relationship = Conv2d(512, 512, 3, same_padding=True)
-		self.score_conv_relationship = Conv2d(512, self.anchor_num_relationship*2, 1, relu=False, same_padding=False)
-		self.bbox_conv_relationship = Conv2d(512, self.anchor_num_relationship*4, 1, relu=False, same_padding=False)
+		# self.conv1_relationship = Conv2d(512, 512, 3, same_padding=True)
+		# self.score_conv_relationship = Conv2d(512, self.anchor_num_relationship*2, 1, relu=False, same_padding=False)
+		# self.bbox_conv_relationship = Conv2d(512, self.anchor_num_relationship*4, 1, relu=False, same_padding=False)
 
 		# loss
 		self.cross_entropy = None
 		self.loss_box = None
 		# self.cross_entropy_obj = None
 		# self.loss_box_obj = None
-		self.cross_entropy_relationship = None
-		self.loss_box_relationship = None
+		# self.cross_entropy_relationship = None
+		# self.loss_box_relationship = None
 
 		# initialize the parameters
 		self.initialize_parameters()
@@ -127,15 +127,15 @@ class RPN(nn.Module):
 		# normal_fun(self.conv1_obj, 0.025)
 		# normal_fun(self.score_conv_obj, 0.025)
 		# normal_fun(self.bbox_conv_obj, 0.01)
-		normal_fun(self.conv1_relationship, 0.025)
-		normal_fun(self.score_conv_relationship, 0.025)
-		normal_fun(self.bbox_conv_relationship, 0.01)
+		# normal_fun(self.conv1_relationship, 0.025)
+		# normal_fun(self.score_conv_relationship, 0.025)
+		# normal_fun(self.bbox_conv_relationship, 0.01)
 
 	@property
 	def loss(self):
-		return self.cross_entropy_relationship + self.loss_box_relationship*0.5 + self.cross_entropy + self.loss_box*0.5
+		return self.cross_entropy + self.loss_box*0.5 # + self.cross_entropy_relationship + self.loss_box_relationship*0.5
 
-	def forward(self, im_data, im_info, gt_objects=None, gt_box_relationship=None, dontcare_areas=None):
+	def forward(self, im_data, im_info, gt_objects=None, dontcare_areas=None):
 		im_data = Variable(im_data.cuda())
 		features = self.features(im_data)
 
@@ -146,12 +146,12 @@ class RPN(nn.Module):
 		rpn_cls_prob_reshape = self.reshape_layer(rpn_cls_prob, self.anchor_num*2)
 		rpn_bbox_pred = self.bbox_conv(rpn_conv1)
 
-		rpn_conv1_relationship = self.conv1_relationship(features)
-		rpn_cls_score_relationship = self.score_conv_relationship(rpn_conv1_relationship)
-		rpn_cls_score_relationship_reshape = self.reshape_layer(rpn_cls_score_relationship, 2)
-		rpn_cls_prob_relationship = F.softmax(rpn_cls_score_relationship_reshape)
-		rpn_cls_prob_relationship_reshape = self.reshape_layer(rpn_cls_prob_relationship, self.anchor_num*2)
-		rpn_bbox_pred_relationship = self.bbox_conv_relationship(rpn_conv1_relationship)
+		# rpn_conv1_relationship = self.conv1_relationship(features)
+		# rpn_cls_score_relationship = self.score_conv_relationship(rpn_conv1_relationship)
+		# rpn_cls_score_relationship_reshape = self.reshape_layer(rpn_cls_score_relationship, 2)
+		# rpn_cls_prob_relationship = F.softmax(rpn_cls_score_relationship_reshape)
+		# rpn_cls_prob_relationship_reshape = self.reshape_layer(rpn_cls_prob_relationship, self.anchor_num*2)
+		# rpn_bbox_pred_relationship = self.bbox_conv_relationship(rpn_conv1_relationship)
 
 		# proposal layer
 		cfg_key = 'TRAIN' if self.training else 'TEST'
@@ -159,30 +159,30 @@ class RPN(nn.Module):
 		object_rois, scores_rois = self.proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info,
 													   cfg_key, self._feat_stride, self.anchor_scales,
 													   self.anchor_ratios, is_relationship=False)
-		relationship_rois, scores_relationship = self.proposal_layer(rpn_cls_prob_relationship_reshape,
-		                                                             rpn_bbox_pred_relationship, im_info,
-		                                                             cfg_key, self._feat_stride,
-		                                                             self.anchor_scales_relationship,
-		                                                             self.anchor_ratios_relationship,
-		                                                             is_relationship=True)
+		# relationship_rois, scores_relationship = self.proposal_layer(rpn_cls_prob_relationship_reshape,
+		#                                                              rpn_bbox_pred_relationship, im_info,
+		#                                                              cfg_key, self._feat_stride,
+		#                                                              self.anchor_scales_relationship,
+		#                                                              self.anchor_ratios_relationship,
+		#                                                              is_relationship=True)
 		# generating training labels and build the rpn loss
 		if self.training:
 			rpn_data = self.anchor_target_layer(rpn_cls_score, gt_objects, dontcare_areas,
 													im_info, self.anchor_scales, self.anchor_ratios, self._feat_stride)
 
-			rpn_data_relationship = self.anchor_target_layer(rpn_cls_score_relationship, gt_box_relationship[:, :4],
-			                                                 dontcare_areas,
-			                                                 im_info, self.anchor_scales_relationship,
-			                                                 self.anchor_ratios_relationship,
-			                                                 self._feat_stride, is_relationship=True)
+			# rpn_data_relationship = self.anchor_target_layer(rpn_cls_score_relationship, gt_box_relationship[:, :4],
+			#                                                  dontcare_areas,
+			#                                                  im_info, self.anchor_scales_relationship,
+			#                                                  self.anchor_ratios_relationship,
+			#                                                  self._feat_stride, is_relationship=True)
 
 			self.cross_entropy, self.loss_box = \
 				self.build_loss(rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
 
-			self.cross_entropy_relationship, self.loss_box_relationship = \
-				self.build_loss(rpn_cls_score_relationship_reshape, rpn_bbox_pred_relationship, rpn_data_relationship)
+			# self.cross_entropy_relationship, self.loss_box_relationship = \
+			# 	self.build_loss(rpn_cls_score_relationship_reshape, rpn_bbox_pred_relationship, rpn_data_relationship)
 
-		return features, object_rois, relationship_rois, scores_rois, scores_relationship
+		return features, object_rois, scores_rois  #, relationship_rois, scores_rois, scores_relationship
 
 
 	def build_loss(self, rpn_cls_score_reshape, rpn_bbox_pred, rpn_data):
