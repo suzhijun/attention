@@ -102,62 +102,104 @@ def check_recall(rois, gt_objects, top_N, thresh=0.5):
     return correct_cnt, total_cnt
 
 
-def check_relationship_recall(gt_objects, gt_relationships, gt_regions,
-        subject_inds, object_inds, predicate_inds, 
-        subject_boxes, object_boxes, predicate_boxes, top_Ns, thres=0.5, only_predicate=False, use_predicate_boxes=False):
-    # rearrange the ground truth
-    gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships > 0) # ground truth number
-    gt_sub = gt_objects[gt_rel_sub_idx, :5]
-    gt_obj = gt_objects[gt_rel_obj_idx, :5]
-    gt_rel = gt_relationships[gt_rel_sub_idx, gt_rel_obj_idx]
+def check_relationship_recall(gt_objects, gt_relationships,
+                              subject_inds, object_inds, predicate_inds,
+                              subject_boxes, object_boxes, top_Ns, thresh=0.5, only_predicate=False):
+	# rearrange the ground truth
+	gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships > 0)  # ground truth number
+	gt_sub = gt_objects[gt_rel_sub_idx, :5]
+	gt_obj = gt_objects[gt_rel_obj_idx, :5]
+	gt_rel = gt_relationships[gt_rel_sub_idx, gt_rel_obj_idx]
 
-    rel_cnt = len(gt_rel)
-    rel_correct_cnt = np.zeros(len(top_Ns))
-    max_topN = max(top_Ns)
+	rel_cnt = len(gt_rel)
+	rel_correct_cnt = np.zeros(len(top_Ns))
+	max_topN = max(top_Ns)
 
-    # compute the overlap
-    sub_overlaps = bbox_overlaps(
-        np.ascontiguousarray(subject_boxes[:max_topN], dtype=np.float),
-        np.ascontiguousarray(gt_sub[:, :4], dtype=np.float))
-    obj_overlaps = bbox_overlaps(
-        np.ascontiguousarray(object_boxes[:max_topN], dtype=np.float),
-        np.ascontiguousarray(gt_obj[:, :4], dtype=np.float))
+	# compute the overlap
+	sub_overlaps = bbox_overlaps(
+		np.ascontiguousarray(subject_boxes[:max_topN], dtype=np.float),
+		np.ascontiguousarray(gt_sub[:, :4], dtype=np.float))
+	obj_overlaps = bbox_overlaps(
+		np.ascontiguousarray(object_boxes[:max_topN], dtype=np.float),
+		np.ascontiguousarray(gt_obj[:, :4], dtype=np.float))
 
-    if use_predicate_boxes:
-        predicate_overlaps = bbox_overlaps(
-            np.ascontiguousarray(predicate_boxes[:max_topN], dtype=np.float),
-            np.ascontiguousarray(gt_regions[:, :4], dtype=np.float))
+	for idx, top_N in enumerate(top_Ns):
+
+		for gt_id in xrange(rel_cnt):
+			fg_candidate = np.where(np.logical_and(
+				sub_overlaps[:top_N, gt_id] >= thresh,
+				obj_overlaps[:top_N, gt_id] >= thresh))[0]
+
+			for candidate_id in fg_candidate:
+				if only_predicate:
+					if predicate_inds[candidate_id] == gt_rel[gt_id]:
+						rel_correct_cnt[idx] += 1
+						break
+				else:
+					if subject_inds[candidate_id] == gt_sub[gt_id, 4] and \
+									predicate_inds[candidate_id] == gt_rel[gt_id] and \
+									object_inds[candidate_id] == gt_obj[gt_id, 4]:
+						rel_correct_cnt[idx] += 1
+						break
+	return rel_cnt, rel_correct_cnt
 
 
-    for idx, top_N in enumerate(top_Ns):
-
-        for gt_id in xrange(rel_cnt):
-            fg_candidate = np.where(np.logical_and(
-                sub_overlaps[:top_N, gt_id] >= thres, 
-                obj_overlaps[:top_N, gt_id] >= thres))[0]
-            
-            for candidate_id in fg_candidate:
-                if only_predicate:
-                    if use_predicate_boxes:
-                        if predicate_inds[candidate_id] == gt_rel[gt_id] and predicate_overlaps[candidate_id, gt_id] > thres:
-                            rel_correct_cnt[idx] += 1
-                            break
-                    else:
-                        if predicate_inds[candidate_id] == gt_rel[gt_id]:
-                            rel_correct_cnt[idx] += 1
-                            break
-                else:
-                    if subject_inds[candidate_id] == gt_sub[gt_id, 4] and \
-                            predicate_inds[candidate_id] == gt_rel[gt_id] and \
-                            object_inds[candidate_id] == gt_obj[gt_id, 4]:
-                        if use_predicate_boxes:
-                            if predicate_overlaps[candidate_id, gt_id] > thres:
-                                rel_correct_cnt[idx] += 1
-                                break
-                        else:
-                            rel_correct_cnt[idx] += 1
-                            break
-    return rel_cnt, rel_correct_cnt
+# def check_relationship_recall(gt_objects, gt_relationships, gt_regions,
+#         subject_inds, object_inds, predicate_inds,
+#         subject_boxes, object_boxes, predicate_boxes, top_Ns, thres=0.5, only_predicate=False, use_predicate_boxes=False):
+#     # rearrange the ground truth
+#     gt_rel_sub_idx, gt_rel_obj_idx = np.where(gt_relationships > 0) # ground truth number
+#     gt_sub = gt_objects[gt_rel_sub_idx, :5]
+#     gt_obj = gt_objects[gt_rel_obj_idx, :5]
+#     gt_rel = gt_relationships[gt_rel_sub_idx, gt_rel_obj_idx]
+#
+#     rel_cnt = len(gt_rel)
+#     rel_correct_cnt = np.zeros(len(top_Ns))
+#     max_topN = max(top_Ns)
+#
+#     # compute the overlap
+#     sub_overlaps = bbox_overlaps(
+#         np.ascontiguousarray(subject_boxes[:max_topN], dtype=np.float),
+#         np.ascontiguousarray(gt_sub[:, :4], dtype=np.float))
+#     obj_overlaps = bbox_overlaps(
+#         np.ascontiguousarray(object_boxes[:max_topN], dtype=np.float),
+#         np.ascontiguousarray(gt_obj[:, :4], dtype=np.float))
+#
+#     if use_predicate_boxes:
+#         predicate_overlaps = bbox_overlaps(
+#             np.ascontiguousarray(predicate_boxes[:max_topN], dtype=np.float),
+#             np.ascontiguousarray(gt_regions[:, :4], dtype=np.float))
+#
+#
+#     for idx, top_N in enumerate(top_Ns):
+#
+#         for gt_id in xrange(rel_cnt):
+#             fg_candidate = np.where(np.logical_and(
+#                 sub_overlaps[:top_N, gt_id] >= thres,
+#                 obj_overlaps[:top_N, gt_id] >= thres))[0]
+#
+#             for candidate_id in fg_candidate:
+#                 if only_predicate:
+#                     if use_predicate_boxes:
+#                         if predicate_inds[candidate_id] == gt_rel[gt_id] and predicate_overlaps[candidate_id, gt_id] > thres:
+#                             rel_correct_cnt[idx] += 1
+#                             break
+#                     else:
+#                         if predicate_inds[candidate_id] == gt_rel[gt_id]:
+#                             rel_correct_cnt[idx] += 1
+#                             break
+#                 else:
+#                     if subject_inds[candidate_id] == gt_sub[gt_id, 4] and \
+#                             predicate_inds[candidate_id] == gt_rel[gt_id] and \
+#                             object_inds[candidate_id] == gt_obj[gt_id, 4]:
+#                         if use_predicate_boxes:
+#                             if predicate_overlaps[candidate_id, gt_id] > thres:
+#                                 rel_correct_cnt[idx] += 1
+#                                 break
+#                         else:
+#                             rel_correct_cnt[idx] += 1
+#                             break
+#     return rel_cnt, rel_correct_cnt
 
 
 def check_obj_rel_recall(gt_objects, gt_relationships, gt_boxes_relationship, rel_covers, obj_rois,

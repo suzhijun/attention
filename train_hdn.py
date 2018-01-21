@@ -28,8 +28,8 @@ parser.add_argument('--log_interval', type=int, default=100, help='Interval for 
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
-parser.add_argument('--resume_model', default=False, help='Resume model from the entire model')
-parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_resume_SGD_best.h5', help='The model used for resuming entire training')
+parser.add_argument('--resume_model', default=True, help='Resume model from the entire model')
+parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alltrain_small_SGD_epoch_0.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
@@ -37,11 +37,6 @@ parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use k
 parser.add_argument('--mps_feature_len', type=int, default=1024, help='The expected feature length of message passing')
 parser.add_argument('--dropout', action='store_true', help='To enables the dropout')
 parser.add_argument('--MPS_iter', type=int, default=2, help='Iterations for Message Passing')
-# parser.add_argument('--gate_width', type=int, default=128, help='The number filters for gate functions in GRU')
-# parser.add_argument('--enable_bbox_reg', dest='region_bbox_reg', action='store_true')
-# parser.add_argument('--disable_bbox_reg', dest='region_bbox_reg', action='store_false')
-# parser.set_defaults(region_bbox_reg=True)
-# parser.add_argument('--use_kernel_function', action='store_true')
 
 # Environment Settings
 parser.add_argument('--train_all', default=True, help='Train all the mode')
@@ -51,7 +46,7 @@ parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Loca
 parser.add_argument('--model_name', type=str, default='HDN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
-parser.add_argument('--evaluate', default=False, help='Only use the testing mode')
+parser.add_argument('--evaluate', default=True, help='Only use the testing mode')
 parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
 parser.add_argument('--use_predicate_boxes', default=False, help='Check if predicate boxes match gt relationship or not')
 
@@ -304,7 +299,7 @@ def test(test_loader, net, top_Ns):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0],
-			top_Ns = top_Ns, nms=True, use_rpn_scores=args.use_rpn_scores, use_predicate_boxes=args.use_predicate_boxes)
+			top_Ns = top_Ns, nms=True, use_rpn_scores=args.use_rpn_scores)
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t
 		batch_time.update(time.time() - end)

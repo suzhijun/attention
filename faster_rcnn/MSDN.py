@@ -70,7 +70,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		# network.weights_normal_init(self.bbox_pred, 0.005)
 
 
-	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None, graph_generation=False):
+	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None):
 
 		self.timer.tic()
 		features, object_rois, scores_object = self.rpn(im_data, im_info, gt_objects)
@@ -469,7 +469,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 	def evaluate(self, im_data, im_info, gt_objects, gt_relationships, gt_regions,
 				 thr=0.5, nms=False, top_Ns = [100], use_gt_boxes=False, use_gt_regions=False, only_predicate=False,
-				 use_rpn_scores=False, use_predicate_boxes=True):
+				 use_rpn_scores=False):
 
 		if use_gt_boxes:
 			gt_boxes_object = gt_objects[:, :4] * im_info[2]
@@ -483,24 +483,27 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			gt_boxes_regions = None
 
 		object_result, predicate_result = \
-			self(im_data, im_info, gt_boxes_object, gt_relationships=None, gt_regions=gt_boxes_regions, graph_generation=True)
+			self(im_data, im_info, gt_boxes_object, gt_relationships=None, gt_regions=gt_boxes_regions)
 
 		cls_prob_object, bbox_object, object_rois, rpn_scores_object = object_result
-		cls_prob_predicate, bbox_predicate, predicate_rois, mat_phrase = predicate_result
+		cls_prob_predicate, predicate_rois, mat_phrase = predicate_result
 
 		# interpret the model output
 		obj_boxes, obj_scores, obj_inds, subject_inds, object_inds, \
-			subject_boxes, object_boxes, predicate_inds, predicate_boxes = \
-				self.interpret_RMRPN(cls_prob_object, bbox_object, object_rois,
-									 cls_prob_predicate, bbox_predicate, predicate_rois,
-									 mat_phrase, rpn_scores_object, im_info,
-									 nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
+			subject_boxes, object_boxes, predicate_inds = \
+			self.interpret_HDN(cls_prob_object, bbox_object, object_rois,
+			                   cls_prob_predicate, mat_phrase, rpn_scores_object, im_info,
+			                   nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
+				# self.interpret_RMRPN(cls_prob_object, bbox_object, object_rois,
+				# 					 cls_prob_predicate, bbox_predicate, predicate_rois,
+				# 					 mat_phrase, rpn_scores_object, im_info,
+				# 					 nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
 
 		gt_objects[:, :4] /= im_info[0][2]
-		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships, gt_regions,
+		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships,
 										subject_inds, object_inds, predicate_inds,
-										subject_boxes, object_boxes, predicate_boxes, top_Ns, thres=thr,
-										only_predicate=only_predicate, use_predicate_boxes=use_predicate_boxes)
+										subject_boxes, object_boxes, top_Ns, thresh=thr,
+										only_predicate=only_predicate)
 
 		return rel_cnt, rel_correct_cnt
 
