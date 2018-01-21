@@ -282,7 +282,7 @@ def train(train_loader, target_net, optimizer, epoch):
 			print('[post mps]')
 			print('[Loss]\tpost_mps_obj_cls_loss: %.4f\t post_mps_pred_cls_loss: %.4f'%
 				 (train_post_mps_obj_cls_loss.avg,  train_post_mps_pred_cls_loss.avg))
-			print('[Accuracy]\t[object]\t pre_mps_tp: %.2f, \tpre_mps_tf: %.2f, \tfg/bg=(%d/%d)'%
+			print('[Accuracy]\t[object]\t post_mps_tp: %.2f, \tpost_mps_tf: %.2f, \tfg/bg=(%d/%d)'%
 			     (accuracy_obj_post_mps.ture_pos*100., accuracy_obj_post_mps.true_neg*100., accuracy_obj_post_mps.foreground, accuracy_obj_post_mps.background))
 
 
