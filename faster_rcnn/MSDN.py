@@ -17,7 +17,7 @@ from utils.cython_bbox import bbox_overlaps, bbox_intersections
 from utils.make_cover import compare_rel_rois
 
 import network
-from network import Conv2d, FC
+from network import Conv2d, FC, SpacialConv
 # from roi_pooling.modules.roi_pool_py import RoIPool
 from roi_pooling.modules.roi_pool import RoIPool
 from MSDN_base import HDN_base
@@ -50,7 +50,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		self.fc6_obj = FC(512 * 7 * 7, nhidden, relu=True)
 		self.fc7_obj = FC(nhidden, nhidden, relu=True)
 		self.fc6_phrase = FC(512 * 7 * 7, nhidden, relu=True)
-		self.fc7_phrase = FC(nhidden, nhidden, relu=True)
+		self.fc7_phrase = FC(nhidden+64, nhidden, relu=True)
+		self.spacial_conv = SpacialConv(pooling_size=32)
 
 		if MPS_iter == 0:
 			self.mps = None
@@ -113,8 +114,10 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			pooled_object_features = F.dropout(pooled_object_features, training = self.training)
 
 		pooled_phrase_features = self.roi_pool_phrase(features, phrase_rois)
-		pooled_phrase_features = pooled_phrase_features.view(pooled_phrase_features.size()[0], -1)
+		pooled_phrase_features = pooled_phrase_features.view(pooled_phrase_features.size(0), -1)
 		pooled_phrase_features = self.fc6_phrase(pooled_phrase_features)
+		spacial_feature = self.spacial_conv(object_rois, mat_phrase, im_info).view(pooled_phrase_features.size(0), -1)
+		pooled_phrase_features = torch.cat([pooled_phrase_features, spacial_feature], 1)
 
 		if self.dropout:
 			pooled_phrase_features = F.dropout(pooled_phrase_features, training = self.training)

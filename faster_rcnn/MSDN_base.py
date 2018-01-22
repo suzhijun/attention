@@ -81,15 +81,15 @@ class HDN_base(nn.Module):
 
         self.fc7_obj.fc.weight.data.copy_(vgg16.classifier[3].weight.data[:self.nhidden, :self.nhidden] * weight_multiplier)
         self.fc7_obj.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
-        self.fc7_phrase.fc.weight.data.copy_(vgg16.classifier[3].weight.data[:self.nhidden, :self.nhidden] * weight_multiplier)
-        self.fc7_phrase.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
+        # self.fc7_phrase.fc.weight.data.copy_(vgg16.classifier[3].weight.data[:self.nhidden, :self.nhidden] * weight_multiplier)
+        # self.fc7_phrase.fc.bias.data.copy_(vgg16.classifier[3].bias.data[:self.nhidden])
         print 'Done.'
 
 
     @property
     def loss(self):
-        return 4*self.pre_mps_cross_entropy_object + self.loss_obj_box + self.pre_mps_cross_entropy_predicate \
-               + self.post_mps_cross_entropy_object*2 + self.post_mps_cross_entropy_predicate*2
+        return self.pre_mps_cross_entropy_object*2 + self.loss_obj_box + self.pre_mps_cross_entropy_predicate \
+               + self.post_mps_cross_entropy_object + self.post_mps_cross_entropy_predicate
     
 
     def build_loss(self, cls_score, bbox_pred, roi_data, obj=False):
@@ -98,12 +98,12 @@ class HDN_base(nn.Module):
         fg_cnt = torch.sum(label.data.ne(0))
         bg_cnt = label.data.numel() - fg_cnt
 
-        if obj:
-            ce_weights = np.sqrt(self.object_loss_weight)
-        else:
-            ce_weights = np.sqrt(self.predicate_loss_weight)
-        ce_weights[0] = float(fg_cnt) / (bg_cnt + 1e-5)
-        ce_weights = ce_weights.cuda()
+        # if obj:
+        #     ce_weights = np.sqrt(self.object_loss_weight)
+        # else:
+        #     ce_weights = np.sqrt(self.predicate_loss_weight)
+        # ce_weights[0] = float(fg_cnt) / (bg_cnt + 1e-5)
+        # ce_weights = ce_weights.cuda()
 
         maxv, predict = cls_score.data.max(1)
         if fg_cnt > 0:
@@ -228,10 +228,10 @@ class HDN_base(nn.Module):
         gt_boxes_object[:, 4] = np.array([obj['class'] for obj in imdb['objects']])
         return gt_boxes_object
 
-    def get_gt_regions(self, imdb):
-        gt_boxes_region= np.empty((len(imdb['regions']), 4), dtype=np.float32)
-        gt_boxes_region = np.array([reg['box'] for reg in imdb['regions']])
-        return gt_boxes_region
+    # def get_gt_regions(self, imdb):
+    #     gt_boxes_region= np.empty((len(imdb['regions']), 4), dtype=np.float32)
+    #     gt_boxes_region = np.array([reg['box'] for reg in imdb['regions']])
+    #     return gt_boxes_region
     
 
     def load_from_npz(self, params):

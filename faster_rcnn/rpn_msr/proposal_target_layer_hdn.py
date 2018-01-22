@@ -280,17 +280,12 @@ def _setup_connection(object_rois):
 	# overlaps: (rois x gt_boxes)
 	roi_num = cfg.TEST.BBOX_NUM
 	keep_inds = np.array(range(min(roi_num, object_rois.shape[0])))
-	# roi_num = len(keep_inds)
 	rois = object_rois[keep_inds]
-
-	# region_roi_entire = np.concatenate((np.amin(object_rois[:, :3], 0), np.amax(object_rois[:, 3:5], 0)), 0)
-	# region_rois = np.vstack((region_roi_entire, region_rois))
 
 	id_i, id_j = _generate_pairs(keep_inds) # Grouping the input object rois and remove the diagonal items
 	phrase_rois = box_union(object_rois[id_i, :], object_rois[id_j, :])
-	# print 'before union', object_rois[id_i[0], :], object_rois[id_j[0], :]
-	# print 'after union', phrase_rois[0, :]
-### prepare connection matrix
+
+	# prepare connection matrix
 	mat_object, mat_phrase = _prepare_mat(id_i, id_j, rois.shape[0])
 
 	return rois, phrase_rois, mat_object, mat_phrase
