@@ -255,12 +255,13 @@ def _sample_rois(object_rois, gt_objects, gt_relationships, gt_box_relationship,
 	sub_list = keep_inds[sub_assignment]
 	obj_list = keep_inds[obj_assignment]
 
+	# always fg first
 	if fg_inds.size > 0:
-		phrase_labels = np.append(phrase_labels, rel_labels_fg)
-		sub_list = np.append(sub_list, sub_list_fg)
-		obj_list = np.append(obj_list, obj_list_fg)
-		sub_assignment = np.append(sub_assignment, sub_assignment_fg)
-		obj_assignment = np.append(obj_assignment, obj_assignment_fg)
+		phrase_labels = np.append(rel_labels_fg, phrase_labels)
+		sub_list = np.append(sub_list_fg, sub_list)
+		obj_list = np.append(obj_list_fg, obj_list)
+		sub_assignment = np.append(sub_assignment_fg, sub_assignment)
+		obj_assignment = np.append(obj_assignment_fg, obj_assignment)
 
 	phrase_rois = box_union(object_rois[sub_list, :], object_rois[obj_list, :])
 

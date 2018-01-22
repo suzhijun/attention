@@ -155,8 +155,8 @@ class HDN_base(nn.Module):
         if fg_cnt == 0:
             tp = 0
         else:
-            tp = torch.sum(predict[bg_cnt:].eq(labels.data[bg_cnt:]))
-        tf = torch.sum(predict[:bg_cnt].eq(labels.data[:bg_cnt]))
+            tp = torch.sum(predict[:fg_cnt].eq(labels.data[:fg_cnt]))
+        tf = torch.sum(predict[fg_cnt:].eq(labels.data[fg_cnt:]))
         fg_cnt = fg_cnt
         bg_cnt = bg_cnt
 
