@@ -133,11 +133,15 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		# calculate box score
 		cls_score_object = self.score_obj(pooled_object_features)
-		cls_prob_object = F.softmax(cls_score_object)
-
+		# cls_prob_object = F.softmax(cls_score_object)
 		cls_score_predicate = self.score_pred(pooled_phrase_features)
-		cls_prob_predicate = F.softmax(cls_score_predicate)
+		# cls_prob_predicate = F.softmax(cls_score_predicate)
 
+		if self.training:
+			self.pre_mps_cross_entropy_object, self.loss_obj_box, self.pre_mps_tp_obj, self.pre_mps_tf_obj, self.pre_mps_fg_cnt_obj, self.pre_mps_bg_cnt_obj = \
+				self.build_loss(cls_score_object, bbox_object, roi_data_object, obj=True)
+			self.pre_mps_cross_entropy_predicate, self.pre_mps_tp_pred, self.pre_mps_tf_pred, self.pre_mps_fg_cnt_pred, self.pre_mps_bg_cnt_pred = \
+				self.build_loss_cls(cls_score_predicate, roi_data_predicate[1])
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -153,8 +157,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				self.MPS_iter = cfg.TEST.MPS_ITER_NUM
 
 		for i in xrange(self.MPS_iter):
-			post_cls_score_objet, post_cls_score_predicate, cls_prob_object, cls_prob_predicate = \
-				self.mps(cls_prob_object, cls_prob_predicate, mat_object, mat_phrase, pooled_object_features, pooled_phrase_features)
+			cls_score_object, cls_score_predicate = \
+				self.mps(cls_score_object, cls_score_predicate, mat_object, mat_phrase, pooled_object_features, pooled_phrase_features)
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -163,20 +167,23 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		self.timer.tic()
 		if self.training:
-			self.pre_mps_cross_entropy_object, self.loss_obj_box, self.pre_mps_tp_obj, self.pre_mps_tf_obj, self.pre_mps_fg_cnt_obj, self.pre_mps_bg_cnt_obj = \
-				self.build_loss(cls_score_object, bbox_object, roi_data_object, obj=True)
-			self.pre_mps_cross_entropy_predicate, self.pre_mps_tp_pred, self.pre_mps_tf_pred, self.pre_mps_fg_cnt_pred, self.pre_mps_bg_cnt_pred = \
-				self.build_loss_cls(cls_score_predicate, roi_data_predicate[1])
+			# self.pre_mps_cross_entropy_object, self.loss_obj_box, self.pre_mps_tp_obj, self.pre_mps_tf_obj, self.pre_mps_fg_cnt_obj, self.pre_mps_bg_cnt_obj = \
+			# 	self.build_loss(cls_score_object, bbox_object, roi_data_object, obj=True)
+			# self.pre_mps_cross_entropy_predicate, self.pre_mps_tp_pred, self.pre_mps_tf_pred, self.pre_mps_fg_cnt_pred, self.pre_mps_bg_cnt_pred = \
+			# 	self.build_loss_cls(cls_score_predicate, roi_data_predicate[1])
 
 			self.post_mps_cross_entropy_object, self.post_mps_tp_obj, self.post_mps_tf_obj, self.post_mps_fg_cnt_obj, self.post_mps_bg_cnt_obj = \
-				self.build_loss_cls(post_cls_score_objet, roi_data_object[1])
+				self.build_loss_cls(cls_score_object, roi_data_object[1])
 			self.post_mps_cross_entropy_predicate, self.post_mps_tp_pred, self.post_mps_tf_pred, self.post_mps_fg_cnt_pred, self.post_mps_bg_cnt_pred = \
-				self.build_loss_cls(post_cls_score_predicate, roi_data_predicate[1])
+				self.build_loss_cls(cls_score_predicate, roi_data_predicate[1])
 
 
 		if TIME_IT:
 			torch.cuda.synchronize()
 			print '\t[Loss]:  %.3fs'%self.timer.toc(average=False)
+
+		cls_prob_object = F.softmax(cls_score_object)
+		cls_prob_predicate = F.softmax(cls_score_predicate)
 
 		return (cls_prob_object, bbox_object, object_rois, scores_object), (cls_prob_predicate, phrase_rois, mat_phrase)
 				# (cls_prob_predicate, bbox_phrase, phrase_rois, mat_phrase)

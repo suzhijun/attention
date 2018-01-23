@@ -1,4 +1,6 @@
-1.
-输入 hmps.py 的是prob，输出的也是prob， 最后用prob做计算，得到的recall全是0
+1.add_label 分支说明：
+1.1 输入 hmps.py 的是prob，输出的也是prob， 最后用prob做cross entropy loss计算，得到的recall全是0
+1.2 输入 hmps.py 的是prob，输出的也是score和prob，传递过程传递甫的是prob， 但最后用score做cross entropy loss计算，得到的recall待测
 
-2.
+2.pass_score 分支说明：
+输入 hmps.py 的是score，输出的也是score， 最后用score做cross entropy loss计算，得到的recall待测
