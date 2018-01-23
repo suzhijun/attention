@@ -17,18 +17,18 @@ from faster_rcnn.utils.HDN_utils import get_model_name, group_features
 
 
 TIME_IT = False
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive Model in pytorch')
 
 # Training parameters
 parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='base learning rate for training')
 parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
-parser.add_argument('--log_interval', type=int, default=50, help='Interval for Logging')
+parser.add_argument('--log_interval', type=int, default=100, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
-parser.add_argument('--resume_model', default=False, help='Resume model from the entire model')
+parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
 parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alltrain_small_SGD_epoch_0.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
@@ -270,7 +270,7 @@ def train(train_loader, target_net, optimizer, epoch):
 
 			print('[pre mps][Loss]\tpre_mps_obj_cls_loss: %.4f\t obj_box_loss: %.4f\t pre_mps_pred_cls_loss: %.4f' %
 				 (train_pre_mps_obj_cls_loss.avg, train_obj_box_loss.avg, train_pre_mps_pred_cls_loss.avg))
-			print('[Accuracy]\t[object]\t pre_mps_tp: %.2f, \tpre_mps_tf: %.2f, \tfg/bg=(%d/%d)'%
+			print('[Accuracy]\t pre_mps_tp: %.2f, \tpre_mps_tf: %.2f, \tfg/bg=(%d/%d)'%
 				 (accuracy_obj_pre_mps.ture_pos*100., accuracy_obj_pre_mps.true_neg*100., accuracy_obj_pre_mps.foreground, accuracy_obj_pre_mps.background))
 
 			print('[post mps][Loss]\tpost_mps_obj_cls_loss: %.4f\t post_mps_pred_cls_loss: %.4f'%
