@@ -102,7 +102,7 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 		sub_to_pred_f[pred_s_ind, sub_p_ind] = sub_to_pred[sub_p_ind]
 		sub_to_pred_f = sub_to_pred_f.sum(dim=1)
 
-个		if TIME_IT:
+		if TIME_IT:
 			torch.cuda.synchronize()
 			print '\t\t[sub_to_pred]:\t%.3fs' % (t.toc(average=False))
 
