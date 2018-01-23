@@ -28,7 +28,7 @@ parser.add_argument('--log_interval', type=int, default=200, help='Interval for 
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
-parser.add_argument('--resume_model', default=False, help='Resume model from the entire model')
+parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
 parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alltrain_small_SGD_epoch_0.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
