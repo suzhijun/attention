@@ -24,12 +24,12 @@ parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
 parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
-parser.add_argument('--log_interval', type=int, default=200, help='Interval for Logging')
+parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
 
 # structure settings
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
-parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alltrain_small_SGD_epoch_0.h5', help='The model used for resuming entire training')
+parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_SGD_epoch_0.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
@@ -211,13 +211,13 @@ def train(train_loader, target_net, optimizer, epoch):
 	accuracy_pred_post_mps = network.AccuracyMeter()
 
 	target_net.train()
-	target_net.mps.pred2sub.fc.weight.register_hook(lambda g:g)
 	end = time.time()
 	for i, (im_data, im_info, gt_objects, gt_relationships, gt_regions) in enumerate(train_loader):
-		# measure the data loading time
 		data_time.update(time.time() - end)
 		t0 = time.time()
+
 		target_net(im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0])
+		
 		if TIME_IT:
 			t1 = time.time()
 			print('forward time %.3fs')%(t1-t0)
