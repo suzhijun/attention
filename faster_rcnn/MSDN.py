@@ -153,7 +153,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				self.MPS_iter = cfg.TEST.MPS_ITER_NUM
 
 		for i in xrange(self.MPS_iter):
-			cls_prob_object, cls_prob_predicate = \
+			post_cls_score_objet, post_cls_score_predicate, cls_prob_object, cls_prob_predicate = \
 				self.mps(cls_prob_object, cls_prob_predicate, mat_object, mat_phrase, pooled_object_features, pooled_phrase_features)
 
 		if TIME_IT:
@@ -169,9 +169,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				self.build_loss_cls(cls_score_predicate, roi_data_predicate[1])
 
 			self.post_mps_cross_entropy_object, self.post_mps_tp_obj, self.post_mps_tf_obj, self.post_mps_fg_cnt_obj, self.post_mps_bg_cnt_obj = \
-				self.build_loss_cls(cls_prob_object, roi_data_object[1])
+				self.build_loss_cls(post_cls_score_objet, roi_data_object[1])
 			self.post_mps_cross_entropy_predicate, self.post_mps_tp_pred, self.post_mps_tf_pred, self.post_mps_fg_cnt_pred, self.post_mps_bg_cnt_pred = \
-				self.build_loss_cls(cls_prob_predicate, roi_data_predicate[1])
+				self.build_loss_cls(post_cls_score_predicate, roi_data_predicate[1])
 
 
 		if TIME_IT:
