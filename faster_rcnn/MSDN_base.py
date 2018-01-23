@@ -14,7 +14,7 @@ from utils.blob import im_list_to_blob
 from fast_rcnn.nms_wrapper import nms
 from fast_rcnn.bbox_transform import bbox_transform_inv_hdn, clip_boxes
 from fast_rcnn.config import cfg
-from utils.cython_bbox import bbox_overlaps
+# from utils.cython_bbox import bbox_overlaps
 
 import network
 from network import Conv2d, FC
