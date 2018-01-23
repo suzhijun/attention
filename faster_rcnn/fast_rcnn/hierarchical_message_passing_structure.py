@@ -6,7 +6,7 @@ from ..network import FC
 from torch.autograd import Variable
 from torch.nn import Parameter
 from ..utils.timer import Timer
-import pdb
+import ipdb
 # from mps_base import Hierarchical_Message_Passing_Structure_base
 from config import cfg
 
@@ -33,6 +33,7 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 		# mps_object [object_batchsize, 2, n_phrase] : the 2 channel means inward(object) and outward(subject) list
 		# mps_phrase [phrase_batchsize, 2]
 		t = Timer()
+		# ipdb.set_trace()
 
 		# prepare transform data
 		t.tic()
@@ -96,10 +97,16 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 
 		# sub_to_pred
 		t.tic()
+<<<<<<< HEAD
+		phrase_sub = self.prepare_message(feature_phrase, feature_obj, mps_object[:, 0, :].T, self.gate_sub2pred)
+		phrase_obj = self.prepare_message(feature_phrase, feature_obj, mps_object[:, 1, :].T, self.gate_obj2pred)
+		GRU_input_feature_phrase =  phrase_sub / 2. + phrase_obj / 2.
+=======
 		sub_to_pred_f = Variable(torch.zeros([pred_size, instance_size, self.n_predicate_cats]).cuda())
 		sub_to_pred_f[pred_s_ind, sub_p_ind] = sub_to_pred[sub_p_ind]
 		sub_to_pred_f = sub_to_pred_f.sum(dim=1)
 
+>>>>>>> add_label
 		if TIME_IT:
 			torch.cuda.synchronize()
 			print '\t\t[sub_to_pred]:\t%.3fs' % (t.toc(average=False))
@@ -124,7 +131,9 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 			torch.cuda.synchronize()
 			print '\t\t[obj_to_pred]:\t%.3fs' % (t.toc(average=False))
 
-		out_obj_labels = F.softmax(transform_instance + (pred_to_sub_f + obj_to_sub_f)/sub_weight + (pred_to_obj_f+sub_to_obj_f)/obj_weight)
-		out_phrase_labels = F.softmax(transform_pred + sub_to_pred_f + obj_to_pred_f)
+		out_obj_score = transform_instance + (pred_to_sub_f + obj_to_sub_f)/sub_weight + (pred_to_obj_f+sub_to_obj_f)/obj_weight
+		out_phrase_score = transform_pred + sub_to_pred_f + obj_to_pred_f
+		out_obj_labels = F.softmax(out_obj_score)
+		out_phrase_labels = F.softmax(out_phrase_score)
 
-		return out_obj_labels, out_phrase_labels
+		return out_obj_score, out_phrase_score, out_obj_labels, out_phrase_labels
