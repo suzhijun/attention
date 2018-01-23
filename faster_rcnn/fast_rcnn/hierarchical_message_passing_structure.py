@@ -124,7 +124,14 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 			torch.cuda.synchronize()
 			print '\t\t[obj_to_pred]:\t%.3fs' % (t.toc(average=False))
 
-		out_obj_labels = F.softmax(transform_instance + (pred_to_sub_f + obj_to_sub_f)/sub_weight + (pred_to_obj_f+sub_to_obj_f)/obj_weight)
-		out_phrase_labels = F.softmax(transform_pred + sub_to_pred_f + obj_to_pred_f)
-
+		out_obj_labels = transform_instance + (pred_to_sub_f + obj_to_sub_f)/sub_weight + (pred_to_obj_f + sub_to_obj_f)/obj_weight
+		out_phrase_labels = transform_pred+sub_to_pred_f+obj_to_pred_f
+		# out_obj_labels = F.softmax(transform_instance + (pred_to_sub_f + obj_to_sub_f)/sub_weight + (pred_to_obj_f + sub_to_obj_f)/obj_weight)
+		# out_phrase_labels = F.softmax(transform_pred+sub_to_pred_f+obj_to_pred_f)
+		
+		# out_obj_labels.register_hook(hook_tmp)
+		# out_phrase_labels.register_hook(hook_tmp)
 		return out_obj_labels, out_phrase_labels
+
+def hook_tmp(g):
+	print(g)
