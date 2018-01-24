@@ -22,10 +22,10 @@ parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive 
 parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 # Training parameters
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
-parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
-parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
+parser.add_argument('--max_epoch', type=int, default=12, metavar='N', help='max iterations for training')
+parser.add_argument('--momentum', type=float, default=0.95, metavar='M', help='percentage of past parameters to store')
 parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
-parser.add_argument('--step_size', type=int, default = 2, help='Step size for reduce learning rate')
+parser.add_argument('--step_size', type=int, default = 3, help='Step size for reduce learning rate')
 
 # structure settings
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
@@ -170,7 +170,7 @@ def main():
 					top_N=top_N, recall=recall[idx] * 100, best_recall=best_recall[idx] * 100))
 
 			# updating learning policy
-			if epoch % args.step_size == 1:
+			if epoch % args.step_size == 2:
 				lr /= 10
 				args.lr = lr
 				print '[learning rate: {}]'.format(lr)
@@ -212,12 +212,12 @@ def train(train_loader, target_net, optimizer, epoch):
 
 	target_net.train()
 	end = time.time()
-	for i, (im_data, im_info, gt_objects, gt_relationships, gt_regions) in enumerate(train_loader):
+	for i, (im_data, im_info, gt_objects, gt_relationships) in enumerate(train_loader):
 		data_time.update(time.time() - end)
 		t0 = time.time()
 
-		target_net(im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0])
-		
+		target_net(im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0])
+
 		if TIME_IT:
 			t1 = time.time()
 			print('forward time %.3fs')%(t1-t0)
@@ -295,10 +295,10 @@ def test(test_loader, net, top_Ns):
 
 	batch_time = network.AverageMeter()
 	end = time.time()
-	for i, (im_data, im_info, gt_objects, gt_relationships, gt_regions) in enumerate(test_loader):
+	for i, (im_data, im_info, gt_objects, gt_relationships) in enumerate(test_loader):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t = net.evaluate(
-			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0], gt_regions.numpy()[0],
+			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0],
 			top_Ns = top_Ns, nms=True, use_rpn_scores=args.use_rpn_scores)
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t

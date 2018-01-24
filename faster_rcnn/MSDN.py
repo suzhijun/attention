@@ -36,7 +36,11 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 	return pred_boxes[keep], scores[keep], inds[keep], keep
 
 class Hierarchical_Descriptive_Model(HDN_base):
-	def __init__(self, nhidden, n_object_cats, n_predicate_cats, MPS_iter, object_loss_weight,
+	def __init__(self, nhidden,
+	             n_object_cats,
+	             n_predicate_cats,
+	             MPS_iter,
+	             object_loss_weight,
 				 predicate_loss_weight,
 				 dropout=False,
 				 use_kmeans_anchors=True):
@@ -71,7 +75,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		# network.weights_normal_init(self.bbox_pred, 0.005)
 
 
-	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None, gt_regions=None):
+	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None):
 
 		self.timer.tic()
 		features, object_rois, scores_object = self.rpn(im_data, im_info, gt_objects)
@@ -89,8 +93,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		self.timer.tic()
 		roi_data_object, roi_data_predicate, mat_object, mat_phrase = \
-			self.proposal_target_layer(object_rois, gt_objects, gt_relationships, gt_regions, self.n_classes_obj,
-									   self.n_classes_pred, self.training)
+			self.proposal_target_layer(object_rois, gt_objects, gt_relationships, self.n_classes_obj, self.training)
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -191,8 +194,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 	@staticmethod
-	def proposal_target_layer(object_rois, gt_objects, gt_relationships, gt_box_relationship, n_classes_obj, n_classes_pred,
-							  is_training=False):
+	def proposal_target_layer(object_rois, gt_objects, gt_relationships, n_classes_obj, is_training=False):
 
 		"""
 		----------
@@ -221,8 +223,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
 		phrase_labels, phrase_rois, \
 		mat_object, mat_phrase = \
-			proposal_target_layer_py(object_rois, gt_objects, gt_relationships, gt_box_relationship, n_classes_obj, n_classes_pred,
-									 is_training)
+			proposal_target_layer_py(object_rois, gt_objects, gt_relationships, n_classes_obj, is_training)
 
 		# print labels.shape, bbox_targets.shape, bbox_inside_weights.shape
 		if is_training:
@@ -477,8 +478,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 
-	def evaluate(self, im_data, im_info, gt_objects, gt_relationships, gt_regions,
-				 thr=0.5, nms=False, top_Ns = [100], use_gt_boxes=False, use_gt_regions=False, only_predicate=False,
+	def evaluate(self, im_data, im_info, gt_objects, gt_relationships,
+				 nms=False, top_Ns = [100], use_gt_boxes=False, only_predicate=False, thr=0.5,
 				 use_rpn_scores=False):
 
 		if use_gt_boxes:
@@ -487,13 +488,13 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			gt_boxes_object = None
 
 
-		if use_gt_regions:
-			gt_boxes_regions = gt_regions[:, :4] * im_info[2]
-		else:
-			gt_boxes_regions = None
+		# if use_gt_regions:
+		# 	gt_boxes_regions = gt_regions[:, :4] * im_info[2]
+		# else:
+		# 	gt_boxes_regions = None
 
 		object_result, predicate_result = \
-			self(im_data, im_info, gt_boxes_object, gt_relationships=None, gt_regions=gt_boxes_regions)
+			self(im_data, im_info, gt_boxes_object, gt_relationships=None)
 
 		cls_prob_object, bbox_object, object_rois, rpn_scores_object = object_result
 		cls_prob_predicate, predicate_rois, mat_phrase = predicate_result

@@ -22,7 +22,7 @@ from ..fast_rcnn.bbox_transform import bbox_transform
 DEBUG = False
 
 
-def proposal_target_layer(rpn_rois, gt_boxes, dontcare_areas, _num_classes, is_training):
+def proposal_target_layer(rpn_rois, gt_boxes, dontcare_areas, _num_classes):
     """
     Assign object detection proposals to ground-truth targets. Produces proposal
     classification labels and bounding-box regression targets.
@@ -46,8 +46,8 @@ def proposal_target_layer(rpn_rois, gt_boxes, dontcare_areas, _num_classes, is_t
     # Proposal ROIs (0, x1, y1, x2, y2) coming from RPN
     # (i.e., rpn.proposal_layer.ProposalLayer), or any other source
 
-    if not is_training:
-        return rpn_rois, None, None, None, None
+    # if not is_training:
+    #     return rpn_rois, None, None, None, None
 
     all_rois = rpn_rois
     # TODO(rbg): it's annoying that sometimes I have extra info before

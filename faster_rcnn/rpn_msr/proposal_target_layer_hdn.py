@@ -21,8 +21,7 @@ from ..fast_rcnn.bbox_transform import bbox_transform
 
 DEBUG = False
 
-def proposal_target_layer(object_rois, gt_objects, gt_relationships, gt_box_relationship, n_classes_obj, n_classes_pred,
-						  is_training):
+def proposal_target_layer(object_rois, gt_objects, gt_relationships, n_classes_obj, is_training):
 
 	#     object_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
 	#     region_rois:  (1 x H x W x A, 5) [0, x1, y1, x2, y2]
@@ -62,7 +61,7 @@ def proposal_target_layer(object_rois, gt_objects, gt_relationships, gt_box_rela
 
 		object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object,\
 			phrase_labels, phrase_rois,\
-				mat_object, mat_phrase = _sample_rois(all_rois, gt_objects, gt_relationships, gt_box_relationship, 1, n_classes_obj, n_classes_pred)
+				mat_object, mat_phrase = _sample_rois(all_rois, gt_objects, gt_relationships, 1, n_classes_obj)
 
 
 		object_labels = object_labels.reshape(-1, 1)
@@ -148,7 +147,7 @@ def box_union(box1, box2):
 
 
 
-def _sample_rois(object_rois, gt_objects, gt_relationships, gt_box_relationship, num_images, num_classes_obj, num_classes_pred):
+def _sample_rois(object_rois, gt_objects, gt_relationships, num_images, num_classes_obj):
 	"""Generate a random sample of RoIs comprising foreground and background
 	examples.
 	"""
