@@ -136,9 +136,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		# calculate box score
 		cls_score_object = self.score_obj(pooled_object_features)
-		# cls_prob_object = F.softmax(cls_score_object)
+		cls_prob_object = F.softmax(cls_score_object)
 		cls_score_predicate = self.score_pred(pooled_phrase_features)
-		# cls_prob_predicate = F.softmax(cls_score_predicate)
+		cls_prob_predicate = F.softmax(cls_score_predicate)
 
 		if self.training:
 			self.pre_mps_cross_entropy_object, self.loss_obj_box, self.pre_mps_tp_obj, self.pre_mps_tf_obj, self.pre_mps_fg_cnt_obj, self.pre_mps_bg_cnt_obj = \
@@ -160,8 +160,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				self.MPS_iter = cfg.TEST.MPS_ITER_NUM
 
 		for i in xrange(self.MPS_iter):
-			cls_score_object, cls_score_predicate = \
-				self.mps(cls_score_object, cls_score_predicate, mat_object, mat_phrase, pooled_object_features, pooled_phrase_features)
+			cls_score_object, cls_score_predicate, cls_prob_object, cls_prob_predicate = \
+				self.mps(cls_prob_object, cls_prob_predicate, mat_object, mat_phrase, pooled_object_features, pooled_phrase_features)
 
 		if TIME_IT:
 			torch.cuda.synchronize()

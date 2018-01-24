@@ -13,9 +13,8 @@ import argparse
 
 import pdb
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 parser = argparse.ArgumentParser('Options for training RPN in pytorch')
-
+parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 ## training settings
 parser.add_argument('--lr', type=float, default=0.01, help='To disable the Lanuage Model ')
 parser.add_argument('--max_epoch', type=int, default=12, metavar='N', help='max iterations for training')
@@ -36,7 +35,7 @@ parser.add_argument('--detection_model', default='./output/detection/HDN_2_iters
 # parser.add_argument('--pretrain', default=True, help='Resume training from RPN')
 # parser.add_argument('--pretrained_model', type=str, default='./output/pretrained_model/resnet101_vg.pth', help='The Model used for resuming from RPN')
 args = parser.parse_args()
-
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
 def main():
 	global args

@@ -130,11 +130,11 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 		# out_phrase_score = transform_pred + sub_to_pred_f + obj_to_pred_f
 		out_obj_score = transform_instance + obj_to_sub_f/sub_weight + sub_to_obj_f/obj_weight
 		out_phrase_score = transform_pred + sub_to_pred_f + obj_to_pred_f
-		# out_obj_labels = F.softmax(out_obj_score)
-		# out_phrase_labels = F.softmax(out_phrase_score)
+		out_obj_labels = F.softmax(out_obj_score)
+		out_phrase_labels = F.softmax(out_phrase_score)
 		# out_obj_labels.register_hook(hook_tmp)
 		# out_phrase_labels.register_hook(hook_tmp)
-		return out_obj_score, out_phrase_score  #, out_obj_labels, out_phrase_labels
+		return out_obj_score, out_phrase_score , out_obj_labels, out_phrase_labels
 
 def hook_tmp(g):
 	print(g)
