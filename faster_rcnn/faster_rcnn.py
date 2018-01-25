@@ -57,23 +57,22 @@ class RPN(nn.Module):
 
 
 		self.anchor_num = len(self.anchor_scales)
-		# self.anchor_num_relationship = len(self.anchor_scales_relationship)
 
-		self.features = models.vgg16(pretrained=True).features
-		self.features.__delattr__('30') # to delete the max pooling
-		# resnet = resnet50(pretrained=True)
-		# self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
-		# 							  resnet.layer1, resnet.layer2, resnet.layer3)
+		# self.features = models.vgg16(pretrained=True).features
+		# self.features.__delattr__('30')
+		resnet = resnet50(pretrained=True)
+		self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
+									  resnet.layer1, resnet.layer2, resnet.layer3)
 
 		# by default, fix the first four layers
 		# network.set_trainable_param(list(self.features.parameters())[:8], requires_grad=False)
 
-		self.conv1 = Conv2d(512, 512, 3, same_padding=True)
-		self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
-		self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
-		# self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
+		# self.conv1 = Conv2d(512, 512, 3, same_padding=True)
 		# self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
 		# self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
+		self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
+		self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
+		self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 
 		# loss
 		self.cross_entropy = None
@@ -256,8 +255,8 @@ class FasterRCNN(nn.Module):
 
 		self.rpn = RPN(use_kmeans_anchors)
 		self.roi_pool = RoIPool(7, 7, 1.0/16)
-		# self.fc6 = FC(1024 * 7 * 7, 4096)
-		self.fc6 = FC(512*7*7, 4096)
+		self.fc6 = FC(1024 * 7 * 7, 4096)
+		# self.fc6 = FC(512*7*7, 4096)
 		self.fc7 = FC(4096, 4096)
 		self.score_fc = FC(4096, self.n_classes, relu=False)
 		self.bbox_fc = FC(4096, self.n_classes * 4, relu=False)
