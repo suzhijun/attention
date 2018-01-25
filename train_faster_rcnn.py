@@ -159,7 +159,6 @@ def train(train_loader, target_net, optimizer, epoch):
 				reg_loss_rpn=train_loss_box_rpn, reg_loss_det=train_loss_box_det))
 
 			print('\tTP: %.2f%%, TF: %.2f%%, fg/bg=(%d/%d)'%(tp/fg*100., tf/bg*100., fg, bg))
-			break
 
 
 def test(test_loader, target_net):
