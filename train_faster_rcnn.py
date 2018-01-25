@@ -20,7 +20,7 @@ parser.add_argument('--lr', type=float, default=0.01, help='To disable the Lanua
 parser.add_argument('--max_epoch', type=int, default=12, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.95, metavar='M', help='percentage of past parameters to store')
 parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
-parser.add_argument('--disable_clip_gradient', action='store_true', help='Whether to clip the gradient')
+parser.add_argument('--clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
 parser.add_argument('--step_size', type=int, default=3, help='step to decay the learning rate')
 
@@ -75,7 +75,7 @@ def main():
 
 		# update learning rate
 		if epoch%args.step_size == args.step_size-1:
-			args.disable_clip_gradient = True
+			args.clip_gradient = False
 			args.lr /= 10
 			for param_group in optimizer.param_groups:
 				param_group['lr'] = args.lr
@@ -134,7 +134,7 @@ def train(train_loader, target_net, optimizer, epoch):
 		# backward
 		optimizer.zero_grad()
 		loss.backward()
-		if not args.disable_clip_gradient:
+		if args.clip_gradient:
 			network.clip_gradient(target_net, 10.)
 		optimizer.step()
 
