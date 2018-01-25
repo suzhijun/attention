@@ -19,7 +19,7 @@ from network import Conv2d, FC
 # from roi_pooling.modules.roi_pool_py import RoIPool
 from roi_pooling.modules.roi_pool import RoIPool
 import torchvision.models as models
-from resnet import resnet50 as resnet50
+from resnet import resnet50, resnet101
 
 def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 	dets = np.hstack((pred_boxes,
@@ -64,8 +64,11 @@ class RPN(nn.Module):
 			self.conv1 = Conv2d(512, 512, 3, same_padding=True)
 			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
 			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
-		elif model == 'resnet':
-			resnet = resnet50(pretrained=True)
+		elif model == 'resnet50' or model == 'resnet101':
+			if model == 'resnet50':
+				resnet = resnet50(pretrained=True)
+			else:
+				resnet = resnet101(pretrained=True)
 			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
 										  resnet.layer1, resnet.layer2, resnet.layer3)
 			self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
@@ -259,7 +262,7 @@ class FasterRCNN(nn.Module):
 
 		if model == 'vgg':
 			self.fc6 = FC(512*7*7, 4096)
-		elif model == 'resnet':
+		elif model == 'resnet50' or model == 'resnet101':
 			self.fc6 = FC(1024 * 7 * 7, 4096)
 		else:
 			print('choose a model')
