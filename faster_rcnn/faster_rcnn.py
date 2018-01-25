@@ -40,7 +40,7 @@ class RPN(nn.Module):
 	anchor_scales_normal = [4, 8, 16, 32, 64]
 	anchor_ratios_normal = [0.25, 0.5, 1, 2, 4]
 
-	def __init__(self, use_kmeans_anchors=False):
+	def __init__(self, use_kmeans_anchors=False, model='vgg'):
 		super(RPN, self).__init__()
 
 		if use_kmeans_anchors:
@@ -58,21 +58,22 @@ class RPN(nn.Module):
 
 		self.anchor_num = len(self.anchor_scales)
 
-		# self.features = models.vgg16(pretrained=True).features
-		# self.features.__delattr__('30')
-		resnet = resnet50(pretrained=True)
-		self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
-									  resnet.layer1, resnet.layer2, resnet.layer3)
+		if model == 'vgg':
+			self.features = models.vgg16(pretrained=True).features
+			self.features.__delattr__('30')
+			self.conv1 = Conv2d(512, 512, 3, same_padding=True)
+			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
+			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
+		elif model == 'resnet':
+			resnet = resnet50(pretrained=True)
+			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
+										  resnet.layer1, resnet.layer2, resnet.layer3)
+			self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
+			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
+			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 
 		# by default, fix the first four layers
 		# network.set_trainable_param(list(self.features.parameters())[:8], requires_grad=False)
-
-		# self.conv1 = Conv2d(512, 512, 3, same_padding=True)
-		# self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
-		# self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
-		self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
-		self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
-		self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 
 		# loss
 		self.cross_entropy = None
@@ -245,7 +246,7 @@ class FasterRCNN(nn.Module):
 	MAX_SIZE = 1000
 	PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
 
-	def __init__(self, use_kmeans_anchors=False, classes=None, debug=False):
+	def __init__(self, use_kmeans_anchors=False, classes=None, model='vgg', debug=False):
 		super(FasterRCNN, self).__init__()
 
 		# self.n_classes = 151
@@ -253,10 +254,16 @@ class FasterRCNN(nn.Module):
 			self.classes = np.asarray(classes)
 			self.n_classes = len(classes)
 
-		self.rpn = RPN(use_kmeans_anchors)
+		self.rpn = RPN(use_kmeans_anchors, model)
 		self.roi_pool = RoIPool(7, 7, 1.0/16)
-		self.fc6 = FC(1024 * 7 * 7, 4096)
-		# self.fc6 = FC(512*7*7, 4096)
+
+		if model == 'vgg':
+			self.fc6 = FC(512*7*7, 4096)
+		elif model == 'resnet':
+			self.fc6 = FC(1024 * 7 * 7, 4096)
+		else:
+			print('choose a model')
+
 		self.fc7 = FC(4096, 4096)
 		self.score_fc = FC(4096, self.n_classes, relu=False)
 		self.bbox_fc = FC(4096, self.n_classes * 4, relu=False)

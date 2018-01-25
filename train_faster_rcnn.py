@@ -23,6 +23,7 @@ parser.add_argument('--log_interval', type=int, default=500, help='Interval for 
 parser.add_argument('--clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
 parser.add_argument('--step_size', type=int, default=3, help='step to decay the learning rate')
+parser.add_argument('--base_model', type=str, default='vgg', help='base model: vgg or resnet')
 
 ## Environment Settings
 parser.add_argument('--pretrained_model', type=str, default='model/pretrained_models/VGG_imagenet.npy',
@@ -48,7 +49,7 @@ def main():
 	#
 	train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
 	test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
-	net = FasterRCNN(use_kmeans_anchors=args.use_kmeans_anchors, classes=object_classes)
+	net = FasterRCNN(use_kmeans_anchors=args.use_kmeans_anchors, classes=object_classes, model=args.base_model)
 	if args.resume_model:
 		print 'Resume training from: {}'.format(args.resume_model)
 		if len(args.resume_model) == 0:
@@ -151,12 +152,12 @@ def train(train_loader, target_net, optimizer, epoch):
 				  '\t[rpn]: '
 				  'cls_loss_rpn: {cls_loss_rpn.avg:.3f}\t'
 				  'reg_loss_rpn: {reg_loss_rpn.avg:.3f}\n'
-				  '\t[det]: '
-				  'cls_loss_det: {cls_loss_det.avg:.3f}\t'
-				  'reg_loss_det: {reg_loss_det.avg:.3f}'
+				  '\t[rcnn]: '
+				  'cls_loss_rcnn: {cls_loss_rcnn.avg:.3f}\t'
+				  'reg_loss_rcnn: {reg_loss_rcnn.avg:.3f}'
 				.format(epoch, i+1, len(train_loader), batch_time=batch_time, lr=args.lr, data_time=data_time,
-				loss=train_loss, cls_loss_rpn=train_loss_entropy_rpn, cls_loss_det=train_loss_entropy_det,
-				reg_loss_rpn=train_loss_box_rpn, reg_loss_det=train_loss_box_det))
+				loss=train_loss, cls_loss_rpn=train_loss_entropy_rpn, cls_loss_rcnn=train_loss_entropy_det,
+				reg_loss_rpn=train_loss_box_rpn, reg_loss_rcnn=train_loss_box_det))
 
 			print('\tTP: %.2f%%, TF: %.2f%%, fg/bg=(%d/%d)'%(tp/fg*100., tf/bg*100., fg, bg))
 
