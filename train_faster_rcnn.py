@@ -44,9 +44,8 @@ def main():
 	train_set = visual_genome(args.dataset_option, 'train')
 	test_set = visual_genome(args.dataset_option, 'test')
 	object_classes = test_set.object_classes
-	#
-	# print "Done."
-	#
+	print "Done."
+
 	train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
 	test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
 	net = FasterRCNN(use_kmeans_anchors=args.use_kmeans_anchors, classes=object_classes, model=args.base_model)

@@ -103,7 +103,7 @@ class RPN(nn.Module):
 
 	@property
 	def loss(self):
-		return  self.cross_entropy + self.loss_box*0.5
+		return  4*self.cross_entropy + self.loss_box
 
 
 	def forward(self, im_data, im_info, gt_objects=None, dontcare_areas=None):
@@ -252,12 +252,14 @@ class FasterRCNN(nn.Module):
 	def __init__(self, use_kmeans_anchors=False, classes=None, model='vgg', debug=False):
 		super(FasterRCNN, self).__init__()
 
+		print('use {}'.format(model))
+
 		# self.n_classes = 151
 		if classes is not None:
 			self.classes = np.asarray(classes)
 			self.n_classes = len(classes)
 
-		self.rpn = RPN(use_kmeans_anchors, model)
+		self.rpn = RPN(use_kmeans_anchors, model=model)
 		self.roi_pool = RoIPool(7, 7, 1.0/16)
 
 		if model == 'vgg':
@@ -265,7 +267,7 @@ class FasterRCNN(nn.Module):
 		elif model == 'resnet50' or model == 'resnet101':
 			self.fc6 = FC(1024 * 7 * 7, 4096)
 		else:
-			print('choose a model')
+			print('please choose a model')
 
 		self.fc7 = FC(4096, 4096)
 		self.score_fc = FC(4096, self.n_classes, relu=False)
@@ -284,7 +286,7 @@ class FasterRCNN(nn.Module):
 		# print self.loss_box
 		# print self.rpn.cross_entropy
 		# print self.rpn.loss_box
-		return self.cross_entropy + self.loss_box*0.5
+		return 4*self.cross_entropy + self.loss_box
 
 	def forward(self, im_data, im_info, gt_boxes):
 		features, rois, scores = self.rpn(im_data, im_info, gt_boxes)
