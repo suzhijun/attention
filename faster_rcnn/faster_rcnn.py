@@ -288,7 +288,7 @@ class FasterRCNN(nn.Module):
 		# print self.rpn.loss_box
 		return 4*self.cross_entropy + self.loss_box
 
-	def forward(self, im_data, im_info, gt_boxes):
+	def forward(self, im_data, im_info, gt_boxes, dropout=True):
 		features, rois, scores = self.rpn(im_data, im_info, gt_boxes)
 
 		if self.training:
@@ -296,20 +296,22 @@ class FasterRCNN(nn.Module):
 			rois = roi_data[0]
 		# roi pool
 		pooled_features = self.roi_pool(features, rois)
-		x = pooled_features.view(pooled_features.size()[0], -1)
-		x = self.fc6(x)
-		x = F.dropout(x, training=self.training)
-		x = self.fc7(x)
-		x = F.dropout(x, training=self.training)
+		pooled_features = pooled_features.view(pooled_features.size()[0], -1)
+		pooled_features = self.fc6(pooled_features)
+		if dropout:
+			pooled_features = F.dropout(pooled_features, training=self.training)
+		pooled_features = self.fc7(pooled_features)
+		if dropout:
+			pooled_features = F.dropout(pooled_features, training=self.training)
 
-		cls_score = self.score_fc(x)
+		cls_score = self.score_fc(pooled_features)
 		cls_prob = F.softmax(cls_score)
-		bbox_pred = self.bbox_fc(x)
+		bbox_pred = self.bbox_fc(pooled_features)
 
 		if self.training:
 			self.cross_entropy, self.loss_box = self.build_loss(cls_score, bbox_pred, roi_data)
 
-		return cls_prob, bbox_pred, rois
+		return cls_prob, bbox_pred, rois, pooled_features
 
 	def build_loss(self, cls_score, bbox_pred, roi_data):
 		# classification loss

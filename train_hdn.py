@@ -23,20 +23,23 @@ parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 # Training parameters
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
 parser.add_argument('--max_epoch', type=int, default=12, metavar='N', help='max iterations for training')
-parser.add_argument('--momentum', type=float, default=0.95, metavar='M', help='percentage of past parameters to store')
+parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
 parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default = 3, help='Step size for reduce learning rate')
 
 # structure settings
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
 parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_SGD_epoch_0.h5', help='The model used for resuming entire training')
-parser.add_argument('--load_RPN', default=True, help='Resume training from RPN')
+parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
+parser.add_argument('--load_RCNN', default=True, help='Resume training from RCNN')
+parser.add_argument('--RCNN_model', type=str, default = './output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The Model used for resuming from RCNN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
-parser.add_argument('--mps_feature_len', type=int, default=1024, help='The expected feature length of message passing')
+parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expected feature length of message passing')
 parser.add_argument('--dropout', action='store_true', help='To enables the dropout')
 parser.add_argument('--MPS_iter', type=int, default=2, help='Iterations for Message Passing')
+parser.add_argument('--base_model', type=str, default='vgg', help='base model: vgg or resnet50 or resnet101')
 
 # Environment Settings
 parser.add_argument('--train_all', default=True, help='Train all the mode')
@@ -86,7 +89,8 @@ def main():
 				 object_loss_weight=train_set.inverse_weight_object,
 				 predicate_loss_weight=train_set.inverse_weight_predicate,
 				 dropout=args.dropout,
-				 use_kmeans_anchors=args.use_kmeans_anchors) #True
+				 use_kmeans_anchors=args.use_kmeans_anchors,
+	             base_model=args.base_model) #True
 
 	# params = list(net.parameters())
 	# for param in params:
@@ -112,6 +116,11 @@ def main():
 		# network.load_net(args.RPN_model, net.rpn)
 		args.train_all = True
 		optimizer_select = 2
+
+	elif args.load_RCNN:
+		print 'Loading pretrained RCNN: {}'.format(args.RCNN_model)
+		network.load_net(args.RCNN_model, net)
+		# net.reinitialize_fc_layers()
 
 	elif args.load_RPN:
 		print 'Loading pretrained RPN: {}'.format(args.RPN_model)

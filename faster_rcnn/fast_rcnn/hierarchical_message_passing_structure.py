@@ -17,7 +17,7 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 		super(Hierarchical_Message_Passing_Structure, self).__init__()
 
 		self.fc_object = FC(nhidden, n_object_cats, relu=True)
-		self.fc_predicate = FC(nhidden, n_predicate_cats, relu=True)
+		self.fc_predicate = FC(nhidden+64, n_predicate_cats, relu=True)
 
 		self.pred2sub = FC(n_predicate_cats, n_object_cats, relu=True)
 		self.pred2obj = FC(n_predicate_cats, n_object_cats, relu=True)

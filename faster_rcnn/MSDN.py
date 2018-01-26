@@ -43,7 +43,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 	             object_loss_weight,
 				 predicate_loss_weight,
 				 dropout=False,
-				 use_kmeans_anchors=True):
+				 use_kmeans_anchors=True,
+	             base_model='vgg'):
 
 		super(Hierarchical_Descriptive_Model, self).__init__(nhidden, n_object_cats, n_predicate_cats,  MPS_iter, object_loss_weight,
 				 predicate_loss_weight, dropout)
@@ -51,10 +52,16 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		self.rpn = RPN(use_kmeans_anchors)
 		self.roi_pool_object = RoIPool(7, 7, 1.0/16)
 		self.roi_pool_phrase = RoIPool(7, 7, 1.0/16)
-		self.fc6_obj = FC(512 * 7 * 7, nhidden, relu=True)
-		self.fc7_obj = FC(nhidden, nhidden, relu=True)
-		self.fc6_phrase = FC(512 * 7 * 7, nhidden, relu=True)
-		self.fc7_phrase = FC(nhidden+64, nhidden, relu=True)
+		if base_model == 'vgg':
+			self.fc6 = FC(512*7*7, nhidden)
+			self.fc6_phrase = FC(512*7*7, nhidden, relu=True)
+		elif base_model == 'resnet50' or base_model == 'resnet101':
+			self.fc6 = FC(1024*7*7, nhidden)
+			self.fc6_phrase = FC(1024*7*7, nhidden, relu=True)
+		else:
+			print('please choose a model')
+		self.fc7 = FC(nhidden, nhidden, relu=True)
+		self.fc7_phrase = FC(nhidden, nhidden, relu=True)
 		self.spacial_conv = SpacialConv(pooling_size=32)
 
 		if MPS_iter == 0:
@@ -63,15 +70,15 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			self.mps = Hierarchical_Message_Passing_Structure(nhidden, n_object_cats, n_predicate_cats) # the hierarchical message passing structure
 			network.weights_normal_init(self.mps, 0.01)
 
-		self.score_obj = FC(nhidden, self.n_classes_obj, relu=False)
-		self.bbox_obj = FC(nhidden, self.n_classes_obj * 4, relu=False)
-		self.score_pred = FC(nhidden, self.n_classes_pred, relu=False)
-		# self.bbox_pred = FC(nhidden, self.n_classes_pred * 4, relu=False)
+		self.score_fc = FC(nhidden, self.n_classes_obj, relu=False)
+		self.bbox_fc = FC(nhidden, self.n_classes_obj * 4, relu=False)
+		self.score_fc_pred = FC(nhidden+64, self.n_classes_pred, relu=False)
+		# self.bbox_pred_fc = FC(nhidden, self.n_classes_pred * 4, relu=False)
 
 
-		network.weights_normal_init(self.score_obj, 0.01)
-		network.weights_normal_init(self.bbox_obj, 0.005)
-		network.weights_normal_init(self.score_pred, 0.01)
+		network.weights_normal_init(self.score_fc, 0.01)
+		network.weights_normal_init(self.bbox_fc, 0.005)
+		network.weights_normal_init(self.score_fc_pred, 0.01)
 		# network.weights_normal_init(self.bbox_pred, 0.005)
 
 
@@ -107,37 +114,37 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		# roi pool
 		pooled_object_features = self.roi_pool_object(features, object_rois)
 		pooled_object_features = pooled_object_features.view(pooled_object_features.size()[0], -1)
-		pooled_object_features = self.fc6_obj(pooled_object_features)
+		pooled_object_features = self.fc6(pooled_object_features)
 
 		if self.dropout:
 			pooled_object_features = F.dropout(pooled_object_features, training = self.training)
 
-		pooled_object_features = self.fc7_obj(pooled_object_features)
+		pooled_object_features = self.fc7(pooled_object_features)
 		if self.dropout:
 			pooled_object_features = F.dropout(pooled_object_features, training = self.training)
 
 		pooled_phrase_features = self.roi_pool_phrase(features, phrase_rois)
 		pooled_phrase_features = pooled_phrase_features.view(pooled_phrase_features.size(0), -1)
 		pooled_phrase_features = self.fc6_phrase(pooled_phrase_features)
-		spacial_feature = self.spacial_conv(object_rois, mat_phrase, im_info).view(pooled_phrase_features.size(0), -1)
-		pooled_phrase_features = torch.cat([pooled_phrase_features, spacial_feature], 1)
 
 		if self.dropout:
 			pooled_phrase_features = F.dropout(pooled_phrase_features, training = self.training)
 
 		pooled_phrase_features = self.fc7_phrase(pooled_phrase_features)
-
 		if self.dropout:
 			pooled_phrase_features = F.dropout(pooled_phrase_features, training = self.training)
 
+		spacial_feature = self.spacial_conv(object_rois, mat_phrase, im_info).view(pooled_phrase_features.size(0), -1)
+		pooled_phrase_features = torch.cat([pooled_phrase_features, spacial_feature], 1)
+
 		# bounding box regression before message passing
-		bbox_object = self.bbox_obj(pooled_object_features)
+		bbox_object = self.bbox_fc(pooled_object_features)
 		# bbox_phrase = self.bbox_pred(F.relu(pooled_phrase_features))
 
 		# calculate box score
-		cls_score_object = self.score_obj(pooled_object_features)
+		cls_score_object = self.score_fc(pooled_object_features)
 		cls_prob_object = F.softmax(cls_score_object)
-		cls_score_predicate = self.score_pred(pooled_phrase_features)
+		cls_score_predicate = self.score_fc_pred(pooled_phrase_features)
 		cls_prob_predicate = F.softmax(cls_score_predicate)
 
 		if self.training:
