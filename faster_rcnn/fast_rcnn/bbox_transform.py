@@ -83,8 +83,8 @@ def bbox_transform_inv_hdn(boxes, deltas):
     ctr_y = boxes[:, 1] + 0.5 * heights
 
     if cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
-        deltas = deltas * np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS) + np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS)
-
+        deltas = deltas * np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS), int(deltas.shape[1] / 4)) \
+                 + np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), int(deltas.shape[1] / 4))
     dx = deltas[:, 0::4]
     dy = deltas[:, 1::4]
     dw = deltas[:, 2::4]
