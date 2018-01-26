@@ -85,7 +85,7 @@ class RPN(nn.Module):
 		# self.loss_box_relationship = None
 
 		# initialize the parameters
-		self.initialize_parameters()
+		# self.initialize_parameters()
 
 	def initialize_parameters(self, normal_method='normal'):
 
@@ -249,15 +249,15 @@ class FasterRCNN(nn.Module):
 	MAX_SIZE = 1000
 	PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
 
-	def __init__(self, use_kmeans_anchors=False, classes=None, model='vgg', debug=False):
+	def __init__(self, use_kmeans_anchors=False, n_classes=None, model='vgg'):
 		super(FasterRCNN, self).__init__()
 
 		print('use {}'.format(model))
 
 		# self.n_classes = 151
-		if classes is not None:
-			self.classes = np.asarray(classes)
-			self.n_classes = len(classes)
+		# if classes is not None:
+		# 	self.classes = np.asarray(classes)
+		self.n_classes = n_classes
 
 		self.rpn = RPN(use_kmeans_anchors, model=model)
 		self.roi_pool = RoIPool(7, 7, 1.0/16)
@@ -276,9 +276,6 @@ class FasterRCNN(nn.Module):
 		# loss
 		self.cross_entropy = None
 		self.loss_box = None
-
-		# for log
-		self.debug = debug
 
 	@property
 	def loss(self):
@@ -311,7 +308,7 @@ class FasterRCNN(nn.Module):
 		if self.training:
 			self.cross_entropy, self.loss_box = self.build_loss(cls_score, bbox_pred, roi_data)
 
-		return cls_prob, bbox_pred, rois, pooled_features
+		return features, pooled_features, cls_score, cls_prob, bbox_pred, rois, scores
 
 	def build_loss(self, cls_score, bbox_pred, roi_data):
 		# classification loss
@@ -393,7 +390,7 @@ class FasterRCNN(nn.Module):
 		if nms and pred_boxes.shape[0] > 0:
 			pred_boxes, scores, inds = nms_detections(pred_boxes, scores, 0.3, inds=inds)
 
-		return pred_boxes, scores, inds, self.classes[inds]
+		return pred_boxes, scores, inds
 
 	def detect(self, image, thr=0.3):
 		im_data, im_scales = self.get_image_blob(image)

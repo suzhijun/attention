@@ -21,11 +21,11 @@ parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive 
 
 parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 # Training parameters
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='base learning rate for training')
+parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='base learning rate for training')
 parser.add_argument('--max_epoch', type=int, default=12, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
-parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
-parser.add_argument('--step_size', type=int, default = 3, help='Step size for reduce learning rate')
+parser.add_argument('--log_interval', type=int, default=200, help='Interval for Logging')
+parser.add_argument('--step_size', type=int, default=3, help='Step size for reduce learning rate')
 
 # structure settings
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
@@ -46,9 +46,9 @@ parser.add_argument('--train_all', default=True, help='Train all the mode')
 parser.add_argument('--seed', type=int, default=1, help='set seed to some constant value to reproduce experiments')
 parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
 parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Location to output the model')
-parser.add_argument('--model_name', type=str, default='HDN', help='The name for saving model.')
+parser.add_argument('--model_name', type=str, default='HDN_RCNN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
-parser.add_argument('--optimizer', type=int, default=2, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
+parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
 parser.add_argument('--evaluate', default=False, help='Only use the testing mode')
 parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
 
@@ -58,7 +58,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 overall_train_loss = network.AverageMeter()
 overall_train_rpn_loss = network.AverageMeter()
 
-optimizer_select = 0
+optimizer_select = 2
 # normal_test = False
 
 def main():
@@ -97,14 +97,10 @@ def main():
 	#     print param.size()
 	print net
 
-	# To group up the features
-	# vgg_features_fix, vgg_features_var, rpn_features, hdn_features = group_features(net)
-	vgg_features_var, rpn_features, hdn_features = group_features(net)
-
 	# Setting the state of the training model
 	net.cuda()
 	net.train()
-	# network.set_trainable(net, False)
+	network.set_trainable(net, False)
 	# network.weights_normal_init(net, dev=0.01)
 
 
@@ -115,16 +111,17 @@ def main():
 		network.load_net(args.HDN_model, net)
 		# network.load_net(args.RPN_model, net.rpn)
 		args.train_all = True
-		optimizer_select = 2
+		optimizer_select = 3
 
 	elif args.load_RCNN:
 		print 'Loading pretrained RCNN: {}'.format(args.RCNN_model)
-		network.load_net(args.RCNN_model, net)
-		# net.reinitialize_fc_layers()
+		args.train_all = False
+		network.load_net(args.RCNN_model, net.rcnn)
+		optimizer_select = 2
 
 	elif args.load_RPN:
 		print 'Loading pretrained RPN: {}'.format(args.RPN_model)
-		# args.train_all = False
+		args.train_all = False
 		network.load_net(args.RPN_model, net.rpn)
 		net.reinitialize_fc_layers()
 		optimizer_select = 1
@@ -136,8 +133,12 @@ def main():
 		optimizer_select = 0
 		args.train_all = True
 
+	# To group up the features
+	# vgg_features_fix, vgg_features_var, rpn_features, hdn_features = group_features(net)
+	basenet_features, rpn_features, rcnn_feature, hdn_features = group_features(net)
 	optimizer = network.get_optimizer(lr, optimizer_select, args,
-				vgg_features_var, rpn_features, hdn_features)
+	                                  basenet_features, rpn_features, rcnn_feature, hdn_features)
+
 
 	target_net = net
 	if not os.path.exists(args.output_dir):
@@ -179,30 +180,31 @@ def main():
 					top_N=top_N, recall=recall[idx] * 100, best_recall=best_recall[idx] * 100))
 
 			# updating learning policy
-			if epoch % args.step_size == 2:
+			if epoch % args.step_size == args.step_size-1:
 				lr /= 10
 				args.lr = lr
 				print '[learning rate: {}]'.format(lr)
 
 				args.enable_clip_gradient = False
 				args.train_all = True
-				optimizer_select = 2
+				optimizer_select = 3
 				# update optimizer and correponding requires_grad state
 				optimizer = network.get_optimizer(lr, optimizer_select, args,
-							vgg_features_var, rpn_features, hdn_features)
+				                                  basenet_features, rpn_features, rcnn_feature, hdn_features)
 
 
 def train(train_loader, target_net, optimizer, epoch):
 	global args
 	# Overall loss logger
-	global overall_train_loss
-	global overall_train_rpn_loss
-	global overall_train_region_caption_loss
+	# global overall_train_loss
+	# global overall_train_rpn_loss
+	# global overall_train_region_caption_loss
 
 	batch_time = network.AverageMeter()
 	data_time = network.AverageMeter()
 	# Total loss
 	train_loss = network.AverageMeter()
+	train_rpn_loss = network.AverageMeter()
 	# object related loss
 	train_pre_mps_obj_cls_loss = network.AverageMeter()
 	train_post_mps_obj_cls_loss = network.AverageMeter()
@@ -211,8 +213,8 @@ def train(train_loader, target_net, optimizer, epoch):
 	train_pre_mps_pred_cls_loss = network.AverageMeter()
 	train_post_mps_pred_cls_loss = network.AverageMeter()
 	# train_pred_box_loss = network.AverageMeter()
-	# RPN loss
-	train_rpn_loss = network.AverageMeter()
+
+
 	# accuracy
 	accuracy_obj_pre_mps = network.AccuracyMeter()
 	accuracy_pred_pre_mps = network.AccuracyMeter()
@@ -234,7 +236,7 @@ def train(train_loader, target_net, optimizer, epoch):
 
 		# Determine the loss function
 		if args.train_all:
-			loss = target_net.loss + target_net.rpn.loss
+			loss = target_net.loss + target_net.rcnn.rpn.loss
 		else:
 			loss = target_net.loss
 
@@ -246,9 +248,9 @@ def train(train_loader, target_net, optimizer, epoch):
 		train_pre_mps_pred_cls_loss.update(target_net.pre_mps_cross_entropy_predicate.data.cpu().numpy()[0], im_data.size(0))
 		train_post_mps_pred_cls_loss.update(target_net.post_mps_cross_entropy_predicate.data.cpu().numpy()[0], im_data.size(0))
 
-		train_rpn_loss.update(target_net.rpn.loss.data.cpu().numpy()[0], im_data.size(0))
-		overall_train_loss.update(target_net.loss.data.cpu().numpy()[0], im_data.size(0))
-		overall_train_rpn_loss.update(target_net.rpn.loss.data.cpu().numpy()[0], im_data.size(0))
+		train_rpn_loss.update(target_net.rcnn.rpn.loss.data.cpu().numpy()[0], im_data.size(0))
+		# overall_train_loss.update(target_net.loss.data.cpu().numpy()[0], im_data.size(0))
+		# overall_train_rpn_loss.update(target_net.rpn.loss.data.cpu().numpy()[0], im_data.size(0))
 
 		accuracy_obj_pre_mps.update(target_net.pre_mps_tp_obj, target_net.pre_mps_tf_obj, target_net.pre_mps_fg_cnt_obj, target_net.pre_mps_bg_cnt_obj)
 		accuracy_pred_pre_mps.update(target_net.pre_mps_tp_pred, target_net.pre_mps_tf_pred, target_net.pre_mps_fg_cnt_pred, target_net.pre_mps_bg_cnt_pred)

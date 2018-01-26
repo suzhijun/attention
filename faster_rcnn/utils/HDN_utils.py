@@ -77,15 +77,18 @@ def get_model_name(arguments):
 def group_features(net_):
     # vgg_features_fix = list(net_.rpn.features.parameters())[:8]
     # vgg_features_var = list(net_.rpn.features.parameters())[8:]
-    vgg_features = list(net_.rpn.features.parameters())
-    vgg_feature_len = len(list(net_.rpn.features.parameters()))
-    rpn_feature_len = len(list(net_.rpn.parameters())) - vgg_feature_len
-    rpn_features = list(net_.rpn.parameters())[vgg_feature_len:]
-    hdn_features = list(net_.parameters())[(rpn_feature_len + vgg_feature_len):]
-    print 'vgg feature length:', vgg_feature_len
+    basenet_features = list(net_.rcnn.rpn.features.parameters())
+    basenet_features_len = len(list(net_.rcnn.rpn.features.parameters()))
+    rpn_feature_len = len(list(net_.rcnn.rpn.parameters())) - basenet_features_len
+    rpn_features = list(net_.rcnn.rpn.parameters())[basenet_features_len:]
+    rcnn_feature_len = len(list(net_.rcnn.parameters())) - rpn_feature_len - basenet_features_len
+    rcnn_feature = list(net_.rcnn.parameters())[rcnn_feature_len:]
+    hdn_features = list(net_.parameters())[(rcnn_feature_len + rpn_feature_len + basenet_features_len):]
+    print 'vgg feature length:', basenet_features_len
     print 'rpn feature length:', rpn_feature_len
+    print 'rcnn feature length:', rcnn_feature_len
     print 'HDN feature length:', len(hdn_features)
-    return vgg_features, rpn_features, hdn_features
+    return basenet_features, rpn_features, rcnn_feature, hdn_features
 
 
 def check_recall_np(rois, gt_objects, top_N, thresh=0.5):

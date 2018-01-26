@@ -11,7 +11,8 @@ from fast_rcnn.nms_wrapper import nms
 from rpn_msr.proposal_target_layer_hdn import proposal_target_layer as proposal_target_layer_py
 from fast_rcnn.bbox_transform import bbox_transform_inv_hdn, clip_boxes
 from fast_rcnn.hierarchical_message_passing_structure import Hierarchical_Message_Passing_Structure
-from RPN import RPN
+# from RPN import RPN
+from faster_rcnn import FasterRCNN
 from fast_rcnn.config import cfg
 from utils.cython_bbox import bbox_overlaps, bbox_intersections
 from utils.make_cover import compare_rel_rois
@@ -49,18 +50,20 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		super(Hierarchical_Descriptive_Model, self).__init__(nhidden, n_object_cats, n_predicate_cats,  MPS_iter, object_loss_weight,
 				 predicate_loss_weight, dropout)
 
-		self.rpn = RPN(use_kmeans_anchors)
+		self.dropout = dropout
+		# self.rpn = RPN(use_kmeans_anchors)
+		self.rcnn = FasterRCNN(use_kmeans_anchors, n_object_cats, model=base_model)
 		self.roi_pool_object = RoIPool(7, 7, 1.0/16)
 		self.roi_pool_phrase = RoIPool(7, 7, 1.0/16)
 		if base_model == 'vgg':
-			self.fc6 = FC(512*7*7, nhidden)
+			# self.fc6 = FC(512*7*7, nhidden)
 			self.fc6_phrase = FC(512*7*7, nhidden, relu=True)
 		elif base_model == 'resnet50' or base_model == 'resnet101':
-			self.fc6 = FC(1024*7*7, nhidden)
+			# self.fc6 = FC(1024*7*7, nhidden)
 			self.fc6_phrase = FC(1024*7*7, nhidden, relu=True)
 		else:
 			print('please choose a model')
-		self.fc7 = FC(nhidden, nhidden, relu=True)
+		# self.fc7 = FC(nhidden, nhidden, relu=True)
 		self.fc7_phrase = FC(nhidden, nhidden, relu=True)
 		self.spacial_conv = SpacialConv(pooling_size=32)
 
@@ -70,14 +73,14 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			self.mps = Hierarchical_Message_Passing_Structure(nhidden, n_object_cats, n_predicate_cats) # the hierarchical message passing structure
 			network.weights_normal_init(self.mps, 0.01)
 
-		self.score_fc = FC(nhidden, self.n_classes_obj, relu=False)
-		self.bbox_fc = FC(nhidden, self.n_classes_obj * 4, relu=False)
+		# self.score_fc = FC(nhidden, self.n_classes_obj, relu=False)
+		# self.bbox_fc = FC(nhidden, self.n_classes_obj * 4, relu=False)
 		self.score_fc_pred = FC(nhidden+64, self.n_classes_pred, relu=False)
 		# self.bbox_pred_fc = FC(nhidden, self.n_classes_pred * 4, relu=False)
 
 
-		network.weights_normal_init(self.score_fc, 0.01)
-		network.weights_normal_init(self.bbox_fc, 0.005)
+		# network.weights_normal_init(self.score_fc, 0.01)
+		# network.weights_normal_init(self.bbox_fc, 0.005)
 		network.weights_normal_init(self.score_fc_pred, 0.01)
 		# network.weights_normal_init(self.bbox_pred, 0.005)
 
@@ -85,7 +88,9 @@ class Hierarchical_Descriptive_Model(HDN_base):
 	def forward(self, im_data, im_info, gt_objects=None, gt_relationships=None):
 
 		self.timer.tic()
-		features, object_rois, scores_object = self.rpn(im_data, im_info, gt_objects)
+		# features, object_rois, scores_object = self.rpn(im_data, im_info, gt_objects)
+		features, pooled_object_features, cls_score_object, \
+		cls_prob_object, bbox_object, object_rois, scores_object = self.rcnn(im_data, im_info, gt_objects, dropout=self.dropout)
 
 		if not self.training and gt_objects is not None:
 			zeros = np.zeros((gt_objects.shape[0], 1), dtype=gt_objects.dtype)
@@ -112,16 +117,16 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		phrase_rois = roi_data_predicate[0]
 
 		# roi pool
-		pooled_object_features = self.roi_pool_object(features, object_rois)
-		pooled_object_features = pooled_object_features.view(pooled_object_features.size()[0], -1)
-		pooled_object_features = self.fc6(pooled_object_features)
+		# pooled_object_features = self.roi_pool_object(features, object_rois)
+		# pooled_object_features = pooled_object_features.view(pooled_object_features.size()[0], -1)
+		# pooled_object_features = self.fc6(pooled_object_features)
 
-		if self.dropout:
-			pooled_object_features = F.dropout(pooled_object_features, training = self.training)
-
-		pooled_object_features = self.fc7(pooled_object_features)
-		if self.dropout:
-			pooled_object_features = F.dropout(pooled_object_features, training = self.training)
+		# if self.dropout:
+		# 	pooled_object_features = F.dropout(pooled_object_features, training = self.training)
+		#
+		# pooled_object_features = self.fc7(pooled_object_features)
+		# if self.dropout:
+		# 	pooled_object_features = F.dropout(pooled_object_features, training = self.training)
 
 		pooled_phrase_features = self.roi_pool_phrase(features, phrase_rois)
 		pooled_phrase_features = pooled_phrase_features.view(pooled_phrase_features.size(0), -1)
@@ -138,12 +143,12 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		pooled_phrase_features = torch.cat([pooled_phrase_features, spacial_feature], 1)
 
 		# bounding box regression before message passing
-		bbox_object = self.bbox_fc(pooled_object_features)
+		# bbox_object = self.bbox_fc(pooled_object_features)
 		# bbox_phrase = self.bbox_pred(F.relu(pooled_phrase_features))
 
 		# calculate box score
-		cls_score_object = self.score_fc(pooled_object_features)
-		cls_prob_object = F.softmax(cls_score_object)
+		# cls_score_object = self.score_fc(pooled_object_features)
+		# cls_prob_object = F.softmax(cls_score_object)
 		cls_score_predicate = self.score_fc_pred(pooled_phrase_features)
 		cls_prob_predicate = F.softmax(cls_score_predicate)
 
