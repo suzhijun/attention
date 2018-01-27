@@ -89,6 +89,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		self.timer.tic()
 		# features, object_rois, scores_object = self.rpn(im_data, im_info, gt_objects)
+		# ToDo: scores_object shouldn't be used, cls_score_object won't be used, it would be better to delete them
 		features, pooled_object_features, cls_score_object, \
 		cls_prob_object, bbox_object, object_rois, scores_object = self.rcnn(im_data, im_info, gt_objects, dropout=self.dropout)
 
@@ -104,8 +105,12 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			print '\t[RPN]: %.3fs'%self.timer.toc(average=False)
 
 		self.timer.tic()
-		roi_data_object, roi_data_predicate, mat_object, mat_phrase = \
+		roi_data_object, roi_data_predicate, mat_object, mat_phrase, keep_inds = \
 			self.proposal_target_layer(object_rois, gt_objects, gt_relationships, self.n_classes_obj, self.training)
+
+		keep_inds = torch.from_numpy(keep_inds).cuda()
+		pooled_object_features, cls_score_object, cls_prob_object, bbox_object = \
+			pooled_object_features[keep_inds], cls_score_object[keep_inds], cls_prob_object[keep_inds], bbox_object[keep_inds]
 
 		if TIME_IT:
 			torch.cuda.synchronize()
@@ -153,8 +158,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		cls_prob_predicate = F.softmax(cls_score_predicate)
 
 		if self.training:
-			self.pre_mps_cross_entropy_object, self.loss_obj_box, self.pre_mps_tp_obj, self.pre_mps_tf_obj, self.pre_mps_fg_cnt_obj, self.pre_mps_bg_cnt_obj = \
-				self.build_loss(cls_score_object, bbox_object, roi_data_object, obj=True)
+			self.pre_mps_tp_obj, self.pre_mps_tf_obj, self.pre_mps_fg_cnt_obj, self.pre_mps_bg_cnt_obj = \
+				self.get_tf(cls_score_object, roi_data_object)
 			self.pre_mps_cross_entropy_predicate, self.pre_mps_tp_pred, self.pre_mps_tf_pred, self.pre_mps_fg_cnt_pred, self.pre_mps_bg_cnt_pred = \
 				self.build_loss_cls(cls_score_predicate, roi_data_predicate[1])
 
@@ -234,7 +239,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
 		phrase_labels, phrase_rois, \
-		mat_object, mat_phrase = \
+		mat_object, mat_phrase, keep_inds = \
 			proposal_target_layer_py(object_rois, gt_objects, gt_relationships, n_classes_obj, is_training)
 
 		# print labels.shape, bbox_targets.shape, bbox_inside_weights.shape
@@ -251,7 +256,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		return (object_rois, object_labels, bbox_targets_object, bbox_inside_weights_object,
 				bbox_outside_weights_object), \
 			   (phrase_rois, phrase_labels), \
-			   mat_object, mat_phrase
+			   mat_object, mat_phrase, keep_inds
 
 
 	def proposal_target_layer_test(self, object_rois, relationship_rois,

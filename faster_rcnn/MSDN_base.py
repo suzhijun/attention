@@ -88,8 +88,26 @@ class HDN_base(nn.Module):
 
 	@property
 	def loss(self):
-		return self.pre_mps_cross_entropy_object + self.loss_obj_box*0.5 + self.pre_mps_cross_entropy_predicate \
+		return self.pre_mps_cross_entropy_predicate \
 			   + self.post_mps_cross_entropy_object + self.post_mps_cross_entropy_predicate
+
+	def get_tf(self, cls_score, roi_data):
+
+		label = roi_data[1].squeeze()
+		fg_cnt = torch.sum(label.data.ne(0))
+		bg_cnt = label.data.numel() - fg_cnt
+
+		maxv, predict = cls_score.data.max(1)
+		if fg_cnt > 0:
+			tp = torch.sum(predict[:fg_cnt].eq(label.data[:fg_cnt]))
+		else:
+			tp = 0.
+		if bg_cnt > 0:
+			tf = torch.sum(predict[fg_cnt:].eq(label.data[fg_cnt:]))
+		else:
+			tf = 0.
+
+		return tp, tf, fg_cnt, bg_cnt
 
 
 	def build_loss(self, cls_score, bbox_pred, roi_data, obj=False):

@@ -33,7 +33,7 @@ parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_S
 parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--load_RCNN', default=True, help='Resume training from RCNN')
-parser.add_argument('--RCNN_model', type=str, default = './output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The Model used for resuming from RCNN')
+parser.add_argument('--RCNN_model', type=str, default = './output/detection/Faster_RCNN_normal_vgg_20epoch_best.h5', help='The Model used for resuming from RCNN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
 parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expected feature length of message passing')
@@ -206,9 +206,9 @@ def train(train_loader, target_net, optimizer, epoch):
 	train_loss = network.AverageMeter()
 	train_rpn_loss = network.AverageMeter()
 	# object related loss
-	train_pre_mps_obj_cls_loss = network.AverageMeter()
+	train_rcnn_loss = network.AverageMeter()  # pre_mps_obj_cls_loss
 	train_post_mps_obj_cls_loss = network.AverageMeter()
-	train_obj_box_loss = network.AverageMeter()
+	# train_obj_box_loss = network.AverageMeter()
 	# relationship cls loss
 	train_pre_mps_pred_cls_loss = network.AverageMeter()
 	train_post_mps_pred_cls_loss = network.AverageMeter()
@@ -236,15 +236,15 @@ def train(train_loader, target_net, optimizer, epoch):
 
 		# Determine the loss function
 		if args.train_all:
-			loss = target_net.loss + target_net.rcnn.rpn.loss
+			loss = target_net.loss + target_net.rcnn.loss + target_net.rcnn.rpn.loss
 		else:
 			loss = target_net.loss
 
 
 		train_loss.update(target_net.loss.data.cpu().numpy()[0], im_data.size(0))
-		train_pre_mps_obj_cls_loss.update(target_net.pre_mps_cross_entropy_object.data.cpu().numpy()[0], im_data.size(0))
+		train_rcnn_loss.update(target_net.rcnn.loss.data.cpu().numpy()[0], im_data.size(0))
 		train_post_mps_obj_cls_loss.update(target_net.post_mps_cross_entropy_object.data.cpu().numpy()[0], im_data.size(0))
-		train_obj_box_loss.update(target_net.loss_obj_box.data.cpu().numpy()[0], im_data.size(0))
+		# train_obj_box_loss.update(target_net.loss_obj_box.data.cpu().numpy()[0], im_data.size(0))
 		train_pre_mps_pred_cls_loss.update(target_net.pre_mps_cross_entropy_predicate.data.cpu().numpy()[0], im_data.size(0))
 		train_post_mps_pred_cls_loss.update(target_net.post_mps_cross_entropy_predicate.data.cpu().numpy()[0], im_data.size(0))
 
@@ -281,8 +281,8 @@ def train(train_loader, target_net, optimizer, epoch):
 				   epoch, i + 1, len(train_loader), batch_time=batch_time,lr=args.lr,
 				   loss=train_loss, rpn_loss=train_rpn_loss, solver=args.solver))
 
-			print('[pre mps][Loss]\tpre_mps_obj_cls_loss: %.4f\t obj_box_loss: %.4f\t pre_mps_pred_cls_loss: %.4f' %
-				 (train_pre_mps_obj_cls_loss.avg, train_obj_box_loss.avg, train_pre_mps_pred_cls_loss.avg))
+			print('[pre mps][Loss]\tfaster_rcnn_loss: %.4f\t pre_mps_pred_cls_loss: %.4f' %
+				 (train_rcnn_loss.avg, train_pre_mps_pred_cls_loss.avg))
 			print('[Accuracy]\t pre_mps_tp: %.2f, \tpre_mps_tf: %.2f, \tfg/bg=(%d/%d)'%
 				 (accuracy_obj_pre_mps.ture_pos*100., accuracy_obj_pre_mps.true_neg*100., accuracy_obj_pre_mps.foreground, accuracy_obj_pre_mps.background))
 

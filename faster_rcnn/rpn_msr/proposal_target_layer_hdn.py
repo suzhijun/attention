@@ -50,10 +50,11 @@ def proposal_target_layer(object_rois, gt_objects, gt_relationships, n_classes_o
 	# targets
 	if is_training:
 		all_rois = object_rois
-		zeros = np.zeros((gt_objects.shape[0], 1), dtype=gt_objects.dtype)
-		all_rois = np.vstack(
-			(all_rois, np.hstack((zeros, gt_objects[:, :4])))
-		)
+		# Because Faster-RCNN had already add gt to rois, so we don't need to do it again
+		# zeros = np.zeros((gt_objects.shape[0], 1), dtype=gt_objects.dtype)
+		# all_rois = np.vstack(
+		# 	(all_rois, np.hstack((zeros, gt_objects[:, :4])))
+		# )
 
 		# Sanity check: single batch only
 		assert np.all(all_rois[:, 0] == 0), \
@@ -61,7 +62,7 @@ def proposal_target_layer(object_rois, gt_objects, gt_relationships, n_classes_o
 
 		object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object,\
 			phrase_labels, phrase_rois,\
-				mat_object, mat_phrase = _sample_rois(all_rois, gt_objects, gt_relationships, 1, n_classes_obj)
+				mat_object, mat_phrase, keep_inds = _sample_rois(all_rois, gt_objects, gt_relationships, 1, n_classes_obj)
 
 
 		object_labels = object_labels.reshape(-1, 1)
@@ -73,7 +74,7 @@ def proposal_target_layer(object_rois, gt_objects, gt_relationships, n_classes_o
 		bbox_outside_weights_object = np.array(bbox_inside_weights_object > 0).astype(np.float32)
 		# bbox_outside_weights_phrase = np.array(bbox_inside_weights_phrase > 0).astype(np.float32)
 	else:
-		object_rois, phrase_rois, mat_object, mat_phrase  = \
+		object_rois, phrase_rois, mat_object, mat_phrase, keep_inds  = \
 					_setup_connection(object_rois)
 		object_labels, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, phrase_labels= [None] * 5
 
@@ -102,7 +103,7 @@ def proposal_target_layer(object_rois, gt_objects, gt_relationships, n_classes_o
 	assert phrase_rois.shape[1] == 5
 
 	return object_labels, object_rois, bbox_targets_object, bbox_inside_weights_object, bbox_outside_weights_object, \
-			phrase_labels, phrase_rois, mat_object, mat_phrase
+			phrase_labels, phrase_rois, mat_object, mat_phrase, keep_inds
 
 
 def _get_bbox_regression_labels(bbox_target_data, num_classes):
@@ -249,7 +250,7 @@ def _sample_rois(object_rois, gt_objects, gt_relationships, num_images, num_clas
 
 	return labels, rois, bbox_targets, bbox_inside_weights, \
 		   phrase_labels, phrase_rois,\
-		   mat_object, mat_phrase
+		   mat_object, mat_phrase, keep_inds
 
 
 def _setup_connection(object_rois):
@@ -267,7 +268,7 @@ def _setup_connection(object_rois):
 	# prepare connection matrix
 	mat_object, mat_phrase = _prepare_mat(id_i, id_j, rois.shape[0])
 
-	return rois, phrase_rois, mat_object, mat_phrase
+	return rois, phrase_rois, mat_object, mat_phrase, keep_inds
 
 
 def _prepare_mat(sub_list, obj_list, object_batchsize):
