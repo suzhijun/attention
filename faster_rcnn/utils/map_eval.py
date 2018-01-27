@@ -77,6 +77,8 @@ def image_cls_eval(scores, boxes, gt_boxes, object_class,
 	cls_scores = scores[inds]
 	cls_boxes = boxes[inds]
 	cls_boxes, cls_scores = nms_detections(cls_boxes, cls_scores, nms_thresh)
+	cls_sorted_inds = np.argsort(-cls_scores)
+	cls_boxes, cls_scores = cls_boxes[cls_sorted_inds], cls_scores[cls_sorted_inds]
 
 	# get gt_boxes of this class
 	cls_gt_boxes = gt_boxes[gt_boxes[:, 4] == object_class]
