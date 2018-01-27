@@ -123,12 +123,12 @@ class RPN(nn.Module):
 		object_rois, scores = self.proposal_layer(rpn_cls_prob_reshape, rpn_bbox_pred, im_info,
 													   cfg_key, self._feat_stride, self.anchor_scales,
 													   self.anchor_ratios, is_relationship=False)
-		# if self.training:
-		rpn_data = self.anchor_target_layer(rpn_cls_score, gt_objects, dontcare_areas,
-												im_info, self.anchor_scales, self.anchor_ratios, self._feat_stride)
+		if self.training:
+			rpn_data = self.anchor_target_layer(rpn_cls_score, gt_objects, dontcare_areas,
+													im_info, self.anchor_scales, self.anchor_ratios, self._feat_stride)
 
-		self.cross_entropy, self.loss_box = \
-			self.build_loss(rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
+			self.cross_entropy, self.loss_box = \
+				self.build_loss(rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
 
 		return features, object_rois, scores
 

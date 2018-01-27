@@ -19,9 +19,9 @@ parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use k
 parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
 parser.add_argument('--output_dir', type=str, default='./output/detection', help='Location to output the model')
 parser.add_argument('--model_name', type=str, default='Faster_RCNN', help='model name for snapshot')
-parser.add_argument('--base_model', type=str, default='resnet101', help='base model: vgg or resnet50 or resnet101')
+parser.add_argument('--base_model', type=str, default='vgg', help='base model: vgg or resnet50 or resnet101')
 parser.add_argument('--resume_training', default=True, help='Resume training from the model [resume_model]')
-parser.add_argument('--resume_model', type=str, default='./output/detection/RPN_object1_best.h5', help='The model we resume')
+parser.add_argument('--resume_model', type=str, default='./output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The model we resume')
 args = parser.parse_args()
 
 
@@ -35,7 +35,7 @@ def main():
 
     # train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
-    net = FasterRCNN(use_kmeans_anchors=args.use_normal_anchors, classes=object_classes, model=args.base_model)
+    net = FasterRCNN(use_kmeans_anchors=args.use_kmeans_anchors, n_classes=len(object_classes), model=args.base_model)
     network.load_net(args.resume_model, net)
     # network.set_trainable(net.features, requires_grad=False)
     net.cuda()
@@ -43,7 +43,7 @@ def main():
     evaluate(test_loader, net, test_set.object_classes)
 
 
-def evaluate(test_loader, target_net, object_classes, score_thresh=0.05, overlap_thresh=0.5, nms_thresh=0.6):
+def evaluate(test_loader, target_net, object_classes, score_thresh=0.00, overlap_thresh=0.5, nms_thresh=0.3):
     print(object_classes)
     # ipdb.set_trace()
     # store cls_scores, cls_tp, cls_gt_num of each cls and every image
@@ -56,7 +56,7 @@ def evaluate(test_loader, target_net, object_classes, score_thresh=0.05, overlap
 
     batch_time = network.AverageMeter()
     end = time.time()
-    for i, (im_data, im_info, gt_boxes, gt_relationships, gt_regions) in enumerate(test_loader):
+    for i, (im_data, im_info, gt_boxes, gt_relationships) in enumerate(test_loader):
         # get every class scores, tf array and gt number
         classes_scores, classes_tf, classes_gt_num = \
             image_eval(target_net, im_data, im_info, gt_boxes.numpy()[0], object_classes,
