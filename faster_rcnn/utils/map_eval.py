@@ -18,7 +18,7 @@ def im_detect(net, im_data, im_info):
 	# pred_boxes = clip_boxes(pred_boxes, im_info[0][:2] / im_info[0][2])
 	pred_boxes = clip_boxes(pred_boxes, im_info[0][:2])
 
-	return scores, pred_boxes
+	return scores, pred_boxes, rois
 
 
 def cls_ap(rec, prec):
@@ -110,7 +110,7 @@ def image_cls_eval(scores, boxes, gt_boxes, object_class,
 def image_eval(target_net, im_data, im_info, gt_boxes, object_classes,  max_per_image=300,
 			   score_thresh=0.05, overlap_thresh=0.5, nms_thresh=0.6):
 
-	scores, boxes = im_detect(target_net, im_data, im_info)
+	scores, boxes, object_rois = im_detect(target_net, im_data, im_info)
 	classes_scores = []  # length = 150
 	classes_tf = []
 	classes_gt_num = []
@@ -134,4 +134,4 @@ def image_eval(target_net, im_data, im_info, gt_boxes, object_classes,  max_per_
 			classes_scores[k] = classes_scores[k][keep]
 			classes_tf[k] = classes_tf[k][keep]
 
-	return classes_scores, classes_tf, classes_gt_num
+	return classes_scores, classes_tf, classes_gt_num, object_rois
