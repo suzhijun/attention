@@ -71,6 +71,9 @@ class RPN(nn.Module):
 				resnet = resnet101(pretrained=True)
 			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
 										  resnet.layer1, resnet.layer2, resnet.layer3)
+			# self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
+			# self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
+			# self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 			self.conv1 = Conv2d(1024, 512, 3, same_padding=True, bn=True)
 			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False, bn=True)
 			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False, bn=True)
@@ -249,7 +252,7 @@ class FasterRCNN(nn.Module):
 	MAX_SIZE = 1000
 	PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
 
-	def __init__(self, use_kmeans_anchors=False, n_classes=None, model='vgg'):
+	def __init__(self, nhidden, use_kmeans_anchors=False, n_classes=None, model='vgg'):
 		super(FasterRCNN, self).__init__()
 
 		print('use {}'.format(model))
@@ -263,15 +266,15 @@ class FasterRCNN(nn.Module):
 		self.roi_pool = RoIPool(7, 7, 1.0/16)
 
 		if model == 'vgg':
-			self.fc6 = FC(512*7*7, 4096)
+			self.fc6 = FC(512*7*7, nhidden)
 		elif model == 'resnet50' or model == 'resnet101':
-			self.fc6 = FC(1024 * 7 * 7, 4096)
+			self.fc6 = FC(1024 * 7 * 7, nhidden)
 		else:
 			print('please choose a model')
 
-		self.fc7 = FC(4096, 4096)
-		self.score_fc = FC(4096, self.n_classes, relu=False)
-		self.bbox_fc = FC(4096, self.n_classes * 4, relu=False)
+		self.fc7 = FC(nhidden, nhidden)
+		self.score_fc = FC(nhidden, self.n_classes, relu=False)
+		self.bbox_fc = FC(nhidden, self.n_classes * 4, relu=False)
 
 		# loss
 		self.cross_entropy = None
