@@ -8,7 +8,7 @@ from faster_rcnn.utils.timer import Timer
 from faster_rcnn.utils.HDN_utils import check_recall
 
 from faster_rcnn.datasets.visual_genome_loader import visual_genome
-from faster_rcnn.fast_rcnn.config import cfg
+from faster_rcnn.utils.map_eval import cls_eval, image_eval
 import argparse
 
 import pdb
@@ -48,7 +48,7 @@ def main():
 
 	train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
 	test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
-	net = FasterRCNN(use_kmeans_anchors=args.use_kmeans_anchors, classes=object_classes, model=args.base_model)
+	net = FasterRCNN(use_kmeans_anchors=args.use_kmeans_anchors, n_classes=len(object_classes), model=args.base_model)
 	if args.resume_model:
 		print 'Resume training from: {}'.format(args.resume_model)
 		if len(args.resume_model) == 0:
@@ -67,7 +67,7 @@ def main():
 	if not os.path.exists(args.output_dir):
 		os.mkdir(args.output_dir)
 
-	best_recall = 0.0
+	best_map = 0.0
 
 	for epoch in range(0, args.max_epoch):
 		# Training
@@ -86,13 +86,13 @@ def main():
 
 		try:
 		# Testing
-			recall = test(test_loader, net)
+			map = evaluate(test_loader, net, object_classes)
 			print('Epoch[{epoch:d}]: '
 				  'Recall: '
-				  'object: {recall: .3f}%% (Best: {best_recall: .3f}%%)'.format(
-				epoch=epoch, recall=recall*100, best_recall=best_recall*100))
-			if recall > best_recall:
-				best_recall = recall
+				  'object: {map: .3f}%% (Best: {best_map: .3f}%%)'.format(
+				epoch=epoch, map=map*100, best_map=best_map*100))
+			if map > best_map:
+				best_map = map
 				save_name = os.path.join(args.output_dir, '{}_best.h5'.format(args.model_name, epoch))
 				network.save_net(save_name, net)
 		except:
@@ -161,62 +161,56 @@ def train(train_loader, target_net, optimizer, epoch):
 			print('\tTP: %.2f%%, TF: %.2f%%, fg/bg=(%d/%d)'%(tp/fg*100., tf/bg*100., fg, bg))
 
 
-def test(test_loader, target_net):
+def evaluate(test_loader, target_net, object_classes, score_thresh=0.00, overlap_thresh=0.5, nms_thresh=0.5):
+    print(object_classes)
+    box_num, correct_cnt, total_cnt = 0, 0, 0
+    # ipdb.set_trace()
+    # store cls_scores, cls_tp, cls_gt_num of each cls and every image
+    all_cls_gt_num = [0] * (len(object_classes) - 1)
+    all_cls_scores = [np.array([])]*(len(object_classes) - 1)
+    all_cls_tp = [np.array([])]*(len(object_classes) - 1)
 
-	box_num, correct_cnt, total_cnt = 0, 0, 0
-	# tp, tf, fg, bg = 0., 0., 0, 0
-	test_loss_box_rpn = network.AverageMeter()
-	test_loss_entropy_rpn = network.AverageMeter()
-	# test_loss_box_det = network.AverageMeter()
-	# test_loss_entropy_det = network.AverageMeter()
-	test_rpn_loss = network.AverageMeter()
-	print '========== Testing ======='
-	target_net.eval()
+    print('========== Evaluate =======')
+    target_net.eval()
 
-	batch_time = network.AverageMeter()
-	end = time.time()
-	for i, (im_data, im_info, gt_boxes, gt_relationships) in enumerate(test_loader):
-		# Forward pass
-		features, object_rois, scores = target_net.rpn(im_data, im_info.numpy(), gt_boxes.numpy()[0])
-		# pred_boxes, scores, inds, classes = target_net.interpret_faster_rcnn(cls_prob, bbox_pred, object_rois, im_info, im_data.size()[-2:])
-		rpn_loss = target_net.rpn.loss
+    batch_time = network.AverageMeter()
+    end = time.time()
+    for i, (im_data, im_info, gt_boxes, gt_relationships) in enumerate(test_loader):
+        # get every class scores, tf array and gt number
+        classes_scores, classes_tf, classes_gt_num, object_rois = \
+            image_eval(target_net, im_data, im_info, gt_boxes.numpy()[0], object_classes,
+                       max_per_image=100, score_thresh=score_thresh, overlap_thresh=overlap_thresh, nms_thresh=nms_thresh)
 
-		test_rpn_loss.update(rpn_loss.data[0], im_data.size(0))
-		test_loss_box_rpn.update(target_net.rpn.loss_box.data[0], im_data.size(0))
-		test_loss_entropy_rpn.update(target_net.rpn.cross_entropy.data[0], im_data.size(0))
-		# test_loss_box_det.update(target_net.cross_entropy.data[0], im_data.size(0))
-		# test_loss_entropy_det.update(target_net.cross_entropy.data[0], im_data.size(0))
+        for j in range(len(object_classes)-1):
+            all_cls_scores[j] = np.append(all_cls_scores[j], classes_scores[j])
+            all_cls_tp[j] = np.append(all_cls_tp[j], classes_tf[j])
+            all_cls_gt_num[j] += classes_gt_num[j]
 
-		box_num += object_rois.size(0)
-		correct_cnt_t, total_cnt_t = check_recall(object_rois, gt_boxes.numpy()[0], 64, thresh=0.5)
-		correct_cnt += correct_cnt_t
-		total_cnt += total_cnt_t
-		batch_time.update(time.time()-end)
-		end = time.time()
-		# tp += float(target_net.tp)
-		# tf += float(target_net.tf)
-		# fg += target_net.fg_cnt
-		# bg += target_net.bg_cnt
-		if (i+1)%args.log_interval == 0 and i > 0:
-			print('[{0}/{6}]  Time: {1:2.3f}s/img).'
-				  '\t[object] Avg: {2:2.2f} Boxes/im, Top-64 recall: {3:2.3f} ({4:d}/{5:d})'.format(
-				i+1, batch_time.avg,box_num/float(i+1), correct_cnt/float(total_cnt)*100,
-				correct_cnt, total_cnt, len(test_loader)))
-			# print('\tTP: %.3f%%, TF: %.3f%%, fg/bg=(%d/%d)'%(tp/fg*100., tf/bg*100., fg, bg))
-			print('\t[rpn]: '
-				  'loss_rpn: {loss.avg:.3f}\t'
-				  'cls_loss_rpn: {cls_loss_rpn.avg:.3f}\t'
-				  'reg_loss_rpn: {reg_loss_rpn.avg:.3f}\n'
-				  # '\t[det]: '
-				  # 'cls_loss_det: {cls_loss_det.avg:.3f}\t'
-				  # 'reg_loss_det: {reg_loss_det.avg:.3f}'
-				.format(loss=test_rpn_loss, cls_loss_rpn=test_loss_entropy_rpn,
-				reg_loss_rpn=test_loss_box_rpn))
 
-	recall = correct_cnt/float(total_cnt)
-	print '====== Done Testing ===='
+        box_num += object_rois.size(0)
+        correct_cnt_t, total_cnt_t = check_recall(object_rois, gt_boxes.numpy()[0], 64, thresh=0.5)
+        correct_cnt += correct_cnt_t
+        total_cnt += total_cnt_t
+        batch_time.update(time.time() - end)
+        end = time.time()
+        if (i+1)%500 == 0 and i > 0:
+	        print('[{0}/{6}]  Time: {1:2.3f}s/img).'
+	              '\t[object] Avg: {2:2.2f} Boxes/im, Top-64 recall: {3:2.3f} ({4:d}/{5:d})'.format(
+		        i+1, batch_time.avg, box_num/float(i+1), correct_cnt/float(total_cnt)*100,
+		        correct_cnt, total_cnt, len(test_loader)))
 
-	return recall
+    all_aps = []
+    for k, cls in enumerate(object_classes[1:]):
+        # sort scores of all images
+        cls_ap = cls_eval(all_cls_scores[k], all_cls_tp[k], all_cls_gt_num[k])
+        all_aps += [cls_ap]
+        print('AP for {} = {:.4f}'.format(cls, cls_ap))
+
+	mean_ap = np.mean(all_aps)
+    print('Mean AP = {:.4f}'.format(mean_ap))
+
+    print('====== Done Testing ====')
+    return mean_ap
 
 
 if __name__ == '__main__':
