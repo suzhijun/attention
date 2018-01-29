@@ -43,8 +43,8 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 		transform_instance = self.fc_object(object_features)
 		transform_pred = self.fc_predicate(phrase_features)
 
-		# pred_to_sub = self.pred2sub(phrase_labels)
-		# pred_to_obj = self.pred2obj(phrase_labels)
+		pred_to_sub = self.pred2sub(phrase_labels)
+		pred_to_obj = self.pred2obj(phrase_labels)
 		sub_to_obj = self.sub2obj(obj_labels)
 		obj_to_sub = self.obj2sub(obj_labels)
 		sub_to_pred = self.sub2pred(obj_labels)
@@ -86,14 +86,14 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 			print '\t\t[obj_to_sub]:\t%.3fs' % (t.toc(average=False))
 
 		# pred_to_sub
-		# t.tic()
-		# pred_to_sub_f = Variable(torch.zeros([instance_size, pred_size, self.n_object_cats]).cuda())
-		# pred_to_sub_f[sub_p_ind, pred_s_ind] = pred_to_sub[pred_s_ind]
-		# pred_to_sub_f = pred_to_sub_f.sum(dim=1)
-		#
-		# if TIME_IT:
-		# 	torch.cuda.synchronize()
-		# 	print '\t\t[pred_to_sub]:\t%.3fs' % (t.toc(average=False))
+		t.tic()
+		pred_to_sub_f = Variable(torch.zeros([instance_size, pred_size, self.n_object_cats]).cuda())
+		pred_to_sub_f[sub_p_ind, pred_s_ind] = pred_to_sub[pred_s_ind]
+		pred_to_sub_f = pred_to_sub_f.sum(dim=1)
+
+		if TIME_IT:
+			torch.cuda.synchronize()
+			print '\t\t[pred_to_sub]:\t%.3fs' % (t.toc(average=False))
 
 		# sub_to_pred
 		t.tic()
@@ -107,14 +107,14 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 			print '\t\t[sub_to_pred]:\t%.3fs' % (t.toc(average=False))
 
 		# pred_to_obj
-		# t.tic()
-		# pred_to_obj_f = Variable(torch.zeros([instance_size, pred_size, self.n_object_cats]).cuda())
-		# pred_to_obj_f[obj_p_ind, pred_o_ind] = pred_to_obj[pred_o_ind]
-		# pred_to_obj_f = pred_to_obj_f.sum(dim=1)
-		#
-		# if TIME_IT:
-		# 	torch.cuda.synchronize()
-		# 	print '\t\t[pred_to_obj]:\t%.3fs' % (t.toc(average=False))
+		t.tic()
+		pred_to_obj_f = Variable(torch.zeros([instance_size, pred_size, self.n_object_cats]).cuda())
+		pred_to_obj_f[obj_p_ind, pred_o_ind] = pred_to_obj[pred_o_ind]
+		pred_to_obj_f = pred_to_obj_f.sum(dim=1)
+
+		if TIME_IT:
+			torch.cuda.synchronize()
+			print '\t\t[pred_to_obj]:\t%.3fs' % (t.toc(average=False))
 
 		# obj_to_pred
 		t.tic()
@@ -126,9 +126,8 @@ class Hierarchical_Message_Passing_Structure(nn.Module):
 			torch.cuda.synchronize()
 			print '\t\t[obj_to_pred]:\t%.3fs' % (t.toc(average=False))
 
-		# out_obj_score = transform_instance + (pred_to_sub_f + obj_to_sub_f)/sub_weight + (pred_to_obj_f+sub_to_obj_f)/obj_weight
-		# out_phrase_score = transform_pred + sub_to_pred_f + obj_to_pred_f
-		out_obj_score = transform_instance + obj_to_sub_f/sub_weight + sub_to_obj_f/obj_weight
+		out_obj_score = transform_instance + (pred_to_sub_f + obj_to_sub_f)/sub_weight + (pred_to_obj_f+sub_to_obj_f)/obj_weight
+		# out_obj_score = transform_instance + obj_to_sub_f/sub_weight + sub_to_obj_f/obj_weight
 		out_phrase_score = transform_pred + sub_to_pred_f + obj_to_pred_f
 		out_obj_labels = F.softmax(out_obj_score)
 		out_phrase_labels = F.softmax(out_phrase_score)

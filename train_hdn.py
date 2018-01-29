@@ -13,7 +13,7 @@ from faster_rcnn.MSDN import Hierarchical_Descriptive_Model
 from faster_rcnn.utils.timer import Timer
 from faster_rcnn.fast_rcnn.config import cfg
 from faster_rcnn.datasets.visual_genome_loader import visual_genome
-from faster_rcnn.utils.HDN_utils import get_model_name, group_features
+from faster_rcnn.utils.HDN_utils import get_model_name, group_features, check_recall
 
 
 TIME_IT = False
@@ -21,19 +21,19 @@ parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive 
 
 parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 # Training parameters
-parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='base learning rate for training')
-parser.add_argument('--max_epoch', type=int, default=12, metavar='N', help='max iterations for training')
+parser.add_argument('--lr', type=float, default=0.0005, metavar='LR', help='base learning rate for training')
+parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
-parser.add_argument('--log_interval', type=int, default=200, help='Interval for Logging')
-parser.add_argument('--step_size', type=int, default=3, help='Step size for reduce learning rate')
+parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
+parser.add_argument('--step_size', type=int, default=2, help='Step size for reduce learning rate')
 
 # structure settings
-parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
-parser.add_argument('--HDN_model', default='./output/HDN/HDN_2_iters_alt_small_SGD_epoch_0.h5', help='The model used for resuming entire training')
+parser.add_argument('--resume_model', default=True, help='Resume model from the entire model')
+parser.add_argument('--HDN_model', default='./output/HDN/HDN_RCNN_2_iters_end2end_small_SGD_epoch_1.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--load_RCNN', default=True, help='Resume training from RCNN')
-parser.add_argument('--RCNN_model', type=str, default = './output/detection/Faster_RCNN_normal_vgg_20epoch_best.h5', help='The Model used for resuming from RCNN')
+parser.add_argument('--RCNN_model', type=str, default = './output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The Model used for resuming from RCNN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
 parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expected feature length of message passing')
@@ -241,7 +241,7 @@ def train(train_loader, target_net, optimizer, epoch):
 			loss = target_net.loss
 
 
-		train_loss.update(target_net.loss.data.cpu().numpy()[0], im_data.size(0))
+		train_loss.update(loss.data.cpu().numpy()[0], im_data.size(0))
 		train_rcnn_loss.update(target_net.rcnn.loss.data.cpu().numpy()[0], im_data.size(0))
 		train_post_mps_obj_cls_loss.update(target_net.post_mps_cross_entropy_object.data.cpu().numpy()[0], im_data.size(0))
 		# train_obj_box_loss.update(target_net.loss_obj_box.data.cpu().numpy()[0], im_data.size(0))
@@ -281,7 +281,7 @@ def train(train_loader, target_net, optimizer, epoch):
 				   epoch, i + 1, len(train_loader), batch_time=batch_time,lr=args.lr,
 				   loss=train_loss, rpn_loss=train_rpn_loss, solver=args.solver))
 
-			print('[pre mps][Loss]\tfaster_rcnn_loss: %.4f\t pre_mps_pred_cls_loss: %.4f' %
+			print('[pre mps][Loss]\tRCNN_loss: %.4f\t pre_mps_pred_cls_loss: %.4f' %
 				 (train_rcnn_loss.avg, train_pre_mps_pred_cls_loss.avg))
 			print('[Accuracy]\t pre_mps_tp: %.2f, \tpre_mps_tf: %.2f, \tfg/bg=(%d/%d)'%
 				 (accuracy_obj_pre_mps.ture_pos*100., accuracy_obj_pre_mps.true_neg*100., accuracy_obj_pre_mps.foreground, accuracy_obj_pre_mps.background))
@@ -303,20 +303,28 @@ def test(test_loader, net, top_Ns):
 
 	rel_cnt = 0.
 	rel_cnt_correct = np.zeros(len(top_Ns))
-
+	box_num, obj_correct_cnt, obj_total_cnt = 0, 0, 0
 	batch_time = network.AverageMeter()
 	end = time.time()
 	for i, (im_data, im_info, gt_objects, gt_relationships) in enumerate(test_loader):
 		# Forward pass
-		total_cnt_t, rel_cnt_correct_t = net.evaluate(
+		total_cnt_t, rel_cnt_correct_t, object_rois = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0],
-			top_Ns = top_Ns, nms=True, use_rpn_scores=args.use_rpn_scores)
+			top_Ns = top_Ns, nms=True, nms_thresh=0.3, use_rpn_scores=args.use_rpn_scores)
+		box_num += object_rois.size(0)
+		obj_correct_cnt_t, obj_total_cnt_t = check_recall(object_rois, gt_objects.numpy()[0], 64)
+		obj_correct_cnt += obj_correct_cnt_t
+		obj_total_cnt += obj_total_cnt_t
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t
 		batch_time.update(time.time() - end)
 		end = time.time()
-		if (i + 1) % 100 == 0 and i > 0:
-			print('Batch_Time: {batch_time.avg: .3f}s\t').format(batch_time=batch_time)
+		if (i + 1) % 1000 == 0 and i > 0:
+			print('[{0}/{6}]  Time: {1:2.3f}s/img).'
+			      '\t[object] Avg: {2:2.2f} Boxes/im, Top-64 recall: {3:2.3f} ({4:d}/{5:d})'.format(
+				i+1, batch_time.avg, box_num/float(i+1), obj_correct_cnt/float(obj_total_cnt)*100,
+				obj_correct_cnt, obj_total_cnt, len(test_loader)))
+
 			for idx, top_N in enumerate(top_Ns):
 				print '[%d/%d][Evaluation] Top-%d Recall: %2.3f%%' % (
 					i+1, len(test_loader), top_N, rel_cnt_correct[idx] / float(rel_cnt) * 100)

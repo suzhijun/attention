@@ -10,11 +10,13 @@ def im_detect(net, im_data, im_info):
 	features, pooled_features, cls_score, cls_prob, bbox_pred, rois, score  = net(im_data, im_info, gt_boxes=None)
 
 	scores = cls_prob.data.cpu().numpy()
-	boxes = rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
+	# boxes = rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
+	boxes = rois.data.cpu().numpy()[:, 1:5]
 	# Apply bounding-box regression deltas
 	box_deltas = bbox_pred.data.cpu().numpy()
 	pred_boxes = bbox_transform_inv(boxes, box_deltas)
-	pred_boxes = clip_boxes(pred_boxes, im_info[0][:2] / im_info[0][2])
+	# pred_boxes = clip_boxes(pred_boxes, im_info[0][:2] / im_info[0][2])
+	pred_boxes = clip_boxes(pred_boxes, im_info[0][:2])
 
 	return scores, pred_boxes
 
@@ -77,6 +79,8 @@ def image_cls_eval(scores, boxes, gt_boxes, object_class,
 	cls_scores = scores[inds]
 	cls_boxes = boxes[inds]
 	cls_boxes, cls_scores = nms_detections(cls_boxes, cls_scores, nms_thresh)
+	cls_sorted_inds = np.argsort(-cls_scores)
+	cls_boxes, cls_scores = cls_boxes[cls_sorted_inds], cls_scores[cls_sorted_inds]
 
 	# get gt_boxes of this class
 	cls_gt_boxes = gt_boxes[gt_boxes[:, 4] == object_class]

@@ -78,11 +78,11 @@ def group_features(net_):
     # vgg_features_fix = list(net_.rpn.features.parameters())[:8]
     # vgg_features_var = list(net_.rpn.features.parameters())[8:]
     basenet_features = list(net_.rcnn.rpn.features.parameters())
-    basenet_features_len = len(list(net_.rcnn.rpn.features.parameters()))
+    basenet_features_len = len(basenet_features)
     rpn_feature_len = len(list(net_.rcnn.rpn.parameters())) - basenet_features_len
     rpn_features = list(net_.rcnn.rpn.parameters())[basenet_features_len:]
     rcnn_feature_len = len(list(net_.rcnn.parameters())) - rpn_feature_len - basenet_features_len
-    rcnn_feature = list(net_.rcnn.parameters())[rcnn_feature_len:]
+    rcnn_feature = list(net_.rcnn.parameters())[(rpn_feature_len+basenet_features_len):]
     hdn_features = list(net_.parameters())[(rcnn_feature_len + rpn_feature_len + basenet_features_len):]
     print 'vgg feature length:', basenet_features_len
     print 'rpn feature length:', rpn_feature_len

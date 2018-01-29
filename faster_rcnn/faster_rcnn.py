@@ -367,7 +367,7 @@ class FasterRCNN(nn.Module):
 
 		return rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
-	def interpret_faster_rcnn(self, cls_prob, bbox_pred, rois, im_info, im_shape, nms=True, clip=True, min_score=0.0):
+	def interpret_faster_rcnn(self, cls_prob, bbox_pred, rois, im_info, im_shape, nms=True, clip=True, min_score=0.0, nms_thresh=0.3):
 		# find class
 		scores, inds = cls_prob.data.max(1)
 		scores, inds = scores.cpu().numpy(), inds.cpu().numpy()
@@ -388,11 +388,11 @@ class FasterRCNN(nn.Module):
 
 		# nms
 		if nms and pred_boxes.shape[0] > 0:
-			pred_boxes, scores, inds = nms_detections(pred_boxes, scores, 0.3, inds=inds)
+			pred_boxes, scores, inds = nms_detections(pred_boxes, scores, nms_thresh, inds=inds)
 
 		return pred_boxes, scores, inds
 
-	def detect(self, image, thr=0.3):
+	def detect(self, image, thresh=0.3, min_score=0.0):
 		im_data, im_scales = self.get_image_blob(image)
 		im_info = np.array(
 			[[im_data.shape[1], im_data.shape[2], im_scales[0]]],
@@ -400,8 +400,9 @@ class FasterRCNN(nn.Module):
 
 		cls_prob, bbox_pred, rois = self(im_data, im_info)
 		pred_boxes, scores, classes = \
-			self.interpret_faster_rcnn(cls_prob, bbox_pred, rois, im_info, image.shape, min_score=thr)
+			self.interpret_faster_rcnn(cls_prob, bbox_pred, rois, im_info, image.shape, min_score=min_score, nms_thresh=thresh)
 		return pred_boxes, scores, classes
+
 
 	def get_image_blob_noscale(self, im):
 		processed_ims = [im]
@@ -410,6 +411,7 @@ class FasterRCNN(nn.Module):
 		blob = im_list_to_blob(processed_ims)
 
 		return blob, np.array(im_scale_factors)
+
 
 	def get_image_blob(self, im):
 		"""Converts an image into a network input.

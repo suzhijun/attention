@@ -328,7 +328,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 	def interpret_HDN(self, cls_prob, bbox_pred, rois, cls_prob_predicate,
-						mat_phrase, rpn_scores_object, im_info, nms=True, clip=True, min_score=0.0,
+						mat_phrase, rpn_scores_object, im_info, nms=True, nms_thresh=0.3, clip=True, min_score=0.0,
 						top_N=100, use_gt_boxes=False, use_rpn_scores=False):
 		scores, inds = cls_prob[:, 1:].data.max(1)
 		inds += 1
@@ -359,7 +359,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		# nms
 		if nms and pred_boxes.shape[0] > 0:
-			pred_boxes, scores, inds, keep_keep = nms_detections(pred_boxes, scores, 0.60, inds=inds)
+			pred_boxes, scores, inds, keep_keep = nms_detections(pred_boxes, scores, nms_thresh, inds=inds)
 			keep = keep[keep_keep]
 
 
@@ -521,7 +521,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			subject_boxes, object_boxes, predicate_inds = \
 			self.interpret_HDN(cls_prob_object, bbox_object, object_rois,
 			                   cls_prob_predicate, mat_phrase, rpn_scores_object, im_info,
-			                   nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
+			                   nms=nms, nms_thresh=0.3, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
 				# self.interpret_RMRPN(cls_prob_object, bbox_object, object_rois,
 				# 					 cls_prob_predicate, bbox_predicate, predicate_rois,
 				# 					 mat_phrase, rpn_scores_object, im_info,
@@ -533,5 +533,5 @@ class Hierarchical_Descriptive_Model(HDN_base):
 										subject_boxes, object_boxes, top_Ns, thresh=thr,
 										only_predicate=only_predicate)
 
-		return rel_cnt, rel_correct_cnt
+		return rel_cnt, rel_correct_cnt, object_rois
 
