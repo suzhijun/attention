@@ -310,7 +310,7 @@ def test(test_loader, net, top_Ns):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t, object_rois = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0],
-			top_Ns = top_Ns, nms=True, nms_thresh=0.4, thresh=0.5, use_rpn_scores=args.use_rpn_scores)
+			top_Ns = top_Ns, nms=False, nms_thresh=0.4, thresh=0.5, use_rpn_scores=args.use_rpn_scores)
 		box_num += object_rois.size(0)
 		obj_correct_cnt_t, obj_total_cnt_t = check_recall(object_rois, gt_objects.numpy()[0], 64)
 		obj_correct_cnt += obj_correct_cnt_t
@@ -320,14 +320,13 @@ def test(test_loader, net, top_Ns):
 		batch_time.update(time.time() - end)
 		end = time.time()
 		if (i + 1) % 1000 == 0 and i > 0:
-			print('[{0}/{6}]  Time: {1:2.3f}s/img).'
-			      '\t[object] Avg: {2:2.2f} Boxes/im, Top-64 recall: {3:2.3f} ({4:d}/{5:d})'.format(
-				i+1, batch_time.avg, box_num/float(i+1), obj_correct_cnt/float(obj_total_cnt)*100,
-				obj_correct_cnt, obj_total_cnt, len(test_loader)))
-
 			for idx, top_N in enumerate(top_Ns):
 				print '[%d/%d][Evaluation] Top-%d Recall: %2.3f%%' % (
 					i+1, len(test_loader), top_N, rel_cnt_correct[idx] / float(rel_cnt) * 100)
+				print('Time: {0:2.3f}s/img.'
+				      '\t[object] Avg: {1:2.2f} Boxes/im, Top-64 recall: {2:2.3f} ({3:d}/{4:d})'.format(
+					batch_time.avg, box_num/float(i+1), obj_correct_cnt/float(obj_total_cnt)*100,
+					obj_correct_cnt, obj_total_cnt))
 
 	recall = rel_cnt_correct / rel_cnt
 	print '====== Done Testing ===='
