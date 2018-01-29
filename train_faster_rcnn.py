@@ -76,7 +76,7 @@ def main():
 		# update learning rate
 		if epoch%args.step_size == args.step_size-1:
 			args.clip_gradient = False
-			args.lr /= 10
+			args.lr /= 5
 			for param_group in optimizer.param_groups:
 				param_group['lr'] = args.lr
 
