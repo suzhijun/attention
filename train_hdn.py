@@ -28,7 +28,7 @@ parser.add_argument('--log_interval', type=int, default=500, help='Interval for 
 parser.add_argument('--step_size', type=int, default=2, help='Step size for reduce learning rate')
 
 # structure settings
-parser.add_argument('--resume_model', default=True, help='Resume model from the entire model')
+parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
 parser.add_argument('--HDN_model', default='./output/HDN/HDN_RCNN_2_iters_end2end_small_SGD_epoch_1.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
@@ -49,7 +49,7 @@ parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Loca
 parser.add_argument('--model_name', type=str, default='HDN_RCNN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
-parser.add_argument('--evaluate', default=False, help='Only use the testing mode')
+parser.add_argument('--evaluate', action='store_true', help='Only use the testing mode')
 parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
 
 args = parser.parse_args()
@@ -310,7 +310,7 @@ def test(test_loader, net, top_Ns):
 		# Forward pass
 		total_cnt_t, rel_cnt_correct_t, object_rois = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0],
-			top_Ns = top_Ns, nms=True, nms_thresh=0.3, use_rpn_scores=args.use_rpn_scores)
+			top_Ns = top_Ns, nms=True, nms_thresh=0.4, thresh=0.5, use_rpn_scores=args.use_rpn_scores)
 		box_num += object_rois.size(0)
 		obj_correct_cnt_t, obj_total_cnt_t = check_recall(object_rois, gt_objects.numpy()[0], 64)
 		obj_correct_cnt += obj_correct_cnt_t

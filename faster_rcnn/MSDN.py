@@ -496,7 +496,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 
 	def evaluate(self, im_data, im_info, gt_objects, gt_relationships,
-				 nms=False, top_Ns = [100], use_gt_boxes=False, only_predicate=False, thr=0.5,
+				 nms=False, nms_thresh=0.4, top_Ns = [100], use_gt_boxes=False, only_predicate=False, thresh=0.5,
 				 use_rpn_scores=False):
 
 		if use_gt_boxes:
@@ -521,7 +521,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			subject_boxes, object_boxes, predicate_inds = \
 			self.interpret_HDN(cls_prob_object, bbox_object, object_rois,
 			                   cls_prob_predicate, mat_phrase, rpn_scores_object, im_info,
-			                   nms=nms, nms_thresh=0.3, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
+			                   nms=nms, nms_thresh=nms_thresh, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
 				# self.interpret_RMRPN(cls_prob_object, bbox_object, object_rois,
 				# 					 cls_prob_predicate, bbox_predicate, predicate_rois,
 				# 					 mat_phrase, rpn_scores_object, im_info,
@@ -530,7 +530,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		gt_objects[:, :4] /= im_info[0][2]
 		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships,
 										subject_inds, object_inds, predicate_inds,
-										subject_boxes, object_boxes, top_Ns, thresh=thr,
+										subject_boxes, object_boxes, top_Ns, thresh=thresh,
 										only_predicate=only_predicate)
 
 		return rel_cnt, rel_correct_cnt, object_rois
