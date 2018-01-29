@@ -7,7 +7,7 @@ from faster_rcnn.faster_rcnn import FasterRCNN  # Hierarchical_Descriptive_Model
 
 from faster_rcnn.datasets.visual_genome_loader import visual_genome
 from faster_rcnn.utils.map_eval import cls_eval, image_eval
-from faster_rcnn.fast_rcnn.config import cfg
+from faster_rcnn.utils.HDN_utils import check_recall
 import argparse
 
 
@@ -19,9 +19,9 @@ parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use k
 parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
 parser.add_argument('--output_dir', type=str, default='./output/detection', help='Location to output the model')
 parser.add_argument('--model_name', type=str, default='Faster_RCNN', help='model name for snapshot')
-parser.add_argument('--base_model', type=str, default='resnet101', help='base model: vgg or resnet50 or resnet101')
+parser.add_argument('--base_model', type=str, default='vgg', help='base model: vgg or resnet50 or resnet101')
 parser.add_argument('--resume_training', default=True, help='Resume training from the model [resume_model]')
-parser.add_argument('--resume_model', type=str, default='./output/detection/Faster_RCNN_small_resnet101_best.h5', help='The model we resume')
+parser.add_argument('--resume_model', type=str, default='./output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The model we resume')
 args = parser.parse_args()
 
 
@@ -43,8 +43,9 @@ def main():
     evaluate(test_loader, net, test_set.object_classes)
 
 
-def evaluate(test_loader, target_net, object_classes, score_thresh=0.00, overlap_thresh=0.5, nms_thresh=0.3):
+def evaluate(test_loader, target_net, object_classes, score_thresh=0.00, overlap_thresh=0.5, nms_thresh=0.5):
     print(object_classes)
+    box_num, correct_cnt, total_cnt = 0, 0, 0
     # ipdb.set_trace()
     # store cls_scores, cls_tp, cls_gt_num of each cls and every image
     all_cls_gt_num = [0] * (len(object_classes) - 1)
@@ -58,20 +59,29 @@ def evaluate(test_loader, target_net, object_classes, score_thresh=0.00, overlap
     end = time.time()
     for i, (im_data, im_info, gt_boxes, gt_relationships) in enumerate(test_loader):
         # get every class scores, tf array and gt number
-        classes_scores, classes_tf, classes_gt_num = \
+        classes_scores, classes_tf, classes_gt_num, object_rois = \
             image_eval(target_net, im_data, im_info, gt_boxes.numpy()[0], object_classes,
-                       max_per_image=300, score_thresh=score_thresh, overlap_thresh=overlap_thresh, nms_thresh=nms_thresh)
+                       max_per_image=100, score_thresh=score_thresh, overlap_thresh=overlap_thresh, nms_thresh=nms_thresh)
 
         for j in range(len(object_classes)-1):
             all_cls_scores[j] = np.append(all_cls_scores[j], classes_scores[j])
             all_cls_tp[j] = np.append(all_cls_tp[j], classes_tf[j])
             all_cls_gt_num[j] += classes_gt_num[j]
 
+
+        box_num += object_rois.size(0)
+        correct_cnt_t, total_cnt_t = check_recall(object_rois, gt_boxes.numpy()[0], 64, thresh=0.5)
+        correct_cnt += correct_cnt_t
+        total_cnt += total_cnt_t
         batch_time.update(time.time() - end)
         end = time.time()
-        if (i+1)%100 == 0 and i > 0:
-            print('[{0}/{1})] Time: {2:2.3f}s/img').format(
-                i+1, len(test_loader), batch_time.avg)
+        if (i+1)%500 == 0 and i > 0:
+	        print('[{0}/{6}]  Time: {1:2.3f}s/img).'
+	              '\t[object] Avg: {2:2.2f} Boxes/im, Top-64 recall: {3:2.3f} ({4:d}/{5:d})'.format(
+		        i+1, batch_time.avg, box_num/float(i+1), correct_cnt/float(total_cnt)*100,
+		        correct_cnt, total_cnt, len(test_loader)))
+            # print('[{0}/{1})] Time: {2:2.3f}s/img').format(
+            #     i+1, len(test_loader), batch_time.avg)
 
     all_aps = []
     for k, cls in enumerate(object_classes[1:]):
