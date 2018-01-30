@@ -61,7 +61,7 @@ def cls_eval(cls_scores, cls_tp, cls_gt_num):
 
 
 def image_cls_eval(scores, boxes, gt_boxes, object_class,
-				   score_thresh=0.05, overlap_thresh=0.5, nms_thresh=0.6):
+				   score_thresh=0.05, overlap_thresh=0.5, nms=True, nms_thresh=0.6):
 	'''
 	scores/boxes of some class of one image
 	keep these that satisfy score_thresh and overlaps_thresh
@@ -78,7 +78,10 @@ def image_cls_eval(scores, boxes, gt_boxes, object_class,
 	inds = np.where(scores[:] > score_thresh)[0]
 	cls_scores = scores[inds]
 	cls_boxes = boxes[inds]
-	cls_boxes, cls_scores = nms_detections(cls_boxes, cls_scores, nms_thresh)
+
+	if nms:
+		cls_boxes, cls_scores = nms_detections(cls_boxes, cls_scores, nms_thresh)
+
 	cls_sorted_inds = np.argsort(-cls_scores)
 	cls_boxes, cls_scores = cls_boxes[cls_sorted_inds], cls_scores[cls_sorted_inds]
 

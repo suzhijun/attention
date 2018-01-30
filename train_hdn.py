@@ -14,7 +14,7 @@ from faster_rcnn.utils.timer import Timer
 from faster_rcnn.fast_rcnn.config import cfg
 from faster_rcnn.datasets.visual_genome_loader import visual_genome
 from faster_rcnn.utils.HDN_utils import get_model_name, group_features, check_recall
-
+from faster_rcnn.utils.map_eval import cls_eval
 
 TIME_IT = False
 parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive Model in pytorch')
@@ -24,12 +24,12 @@ parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 parser.add_argument('--lr', type=float, default=0.0005, metavar='LR', help='base learning rate for training')
 parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
-parser.add_argument('--log_interval', type=int, default=500, help='Interval for Logging')
+parser.add_argument('--log_interval', type=int, default=100, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default=2, help='Step size for reduce learning rate')
 
 # structure settings
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
-parser.add_argument('--HDN_model', default='./output/HDN/HDN_RCNN_2_iters_end2end_small_SGD_epoch_1.h5', help='The model used for resuming entire training')
+parser.add_argument('--HDN_model', default='./output/HDN/HDN_RCNN_small_vgg_notrain_rcnn_1_iters_alltrain_small_resume_SGD_best.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--load_RCNN', default=True, help='Resume training from RCNN')
@@ -150,7 +150,7 @@ def main():
 
 
 	if args.evaluate:
-		recall = test(test_loader, target_net, top_Ns)
+		recall = test(test_loader, target_net, top_Ns, train_set.object_classes)
 		print('======= Testing Result =======')
 		for idx, top_N in enumerate(top_Ns):
 			print('[Recall@{top_N:d}] {recall:2.3f}%% (best: {best_recall:2.3f}%%)'.format(
@@ -292,7 +292,7 @@ def train(train_loader, target_net, optimizer, epoch):
 			     (accuracy_obj_post_mps.ture_pos*100., accuracy_obj_post_mps.true_neg*100., accuracy_obj_post_mps.foreground, accuracy_obj_post_mps.background))
 
 
-def test(test_loader, net, top_Ns):
+def test(test_loader, net, top_Ns, object_classes):
 
 	global args
 
@@ -306,9 +306,14 @@ def test(test_loader, net, top_Ns):
 	box_num, obj_correct_cnt, obj_total_cnt = 0, 0, 0
 	batch_time = network.AverageMeter()
 	end = time.time()
+
+	all_cls_gt_num = [0]*(len(object_classes)-1)
+	all_cls_scores = [np.array([])]*(len(object_classes)-1)
+	all_cls_tp = [np.array([])]*(len(object_classes)-1)
+
 	for i, (im_data, im_info, gt_objects, gt_relationships) in enumerate(test_loader):
 		# Forward pass
-		total_cnt_t, rel_cnt_correct_t, object_rois = net.evaluate(
+		total_cnt_t, rel_cnt_correct_t, object_rois, classes_scores, classes_tf, classes_gt_num = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0],
 			top_Ns = top_Ns, nms=False, nms_thresh=0.4, thresh=0.5, use_rpn_scores=args.use_rpn_scores)
 		box_num += object_rois.size(0)
@@ -317,16 +322,30 @@ def test(test_loader, net, top_Ns):
 		obj_total_cnt += obj_total_cnt_t
 		rel_cnt += total_cnt_t
 		rel_cnt_correct += rel_cnt_correct_t
+
+		for j in range(len(object_classes)-1):
+			all_cls_scores[j] = np.append(all_cls_scores[j], classes_scores[j])
+			all_cls_tp[j] = np.append(all_cls_tp[j], classes_tf[j])
+			all_cls_gt_num[j] += classes_gt_num[j]
+
 		batch_time.update(time.time() - end)
 		end = time.time()
-		if (i + 1) % 1000 == 0 and i > 0:
+		if (i + 1) % args.log_interval == 0 and i > 0:
+			print('Time: {0:2.3f}s/img.'
+			      '\t[object] Avg: {1:2.2f} Boxes/im, Top-64 recall: {2:2.3f} ({3:d}/{4:d})'.format(
+				batch_time.avg, box_num/float(i+1), obj_correct_cnt/float(obj_total_cnt)*100,
+				obj_correct_cnt, obj_total_cnt))
 			for idx, top_N in enumerate(top_Ns):
 				print '[%d/%d][Evaluation] Top-%d Recall: %2.3f%%' % (
 					i+1, len(test_loader), top_N, rel_cnt_correct[idx] / float(rel_cnt) * 100)
-				print('Time: {0:2.3f}s/img.'
-				      '\t[object] Avg: {1:2.2f} Boxes/im, Top-64 recall: {2:2.3f} ({3:d}/{4:d})'.format(
-					batch_time.avg, box_num/float(i+1), obj_correct_cnt/float(obj_total_cnt)*100,
-					obj_correct_cnt, obj_total_cnt))
+
+	all_aps = []
+	for k, cls in enumerate(object_classes[1:]):
+		# sort scores of all images
+		cls_ap = cls_eval(all_cls_scores[k], all_cls_tp[k], all_cls_gt_num[k])
+		all_aps += [cls_ap]
+		print('AP for {} = {:.4f}'.format(cls, cls_ap))
+	print('Mean AP = {:.4f}'.format(np.mean(all_aps)))
 
 	recall = rel_cnt_correct / rel_cnt
 	print '====== Done Testing ===='
