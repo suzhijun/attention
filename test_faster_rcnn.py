@@ -19,9 +19,9 @@ parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use k
 parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
 parser.add_argument('--output_dir', type=str, default='./output/detection', help='Location to output the model')
 parser.add_argument('--model_name', type=str, default='Faster_RCNN', help='model name for snapshot')
-parser.add_argument('--base_model', type=str, default='resnet101', help='base model: vgg or resnet50 or resnet101')
+parser.add_argument('--base_model', type=str, default='vgg', help='base model: vgg or resnet50 or resnet101')
 parser.add_argument('--resume_training', default=True, help='Resume training from the model [resume_model]')
-parser.add_argument('--resume_model', type=str, default='./output/detection/Faster_RCNN_normal_resnet101_20epoch_epoch_11.h5', help='The model we resume')
+parser.add_argument('--resume_model', type=str, default='./output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The model we resume')
 parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expected feature length of message passing')
 args = parser.parse_args()
 

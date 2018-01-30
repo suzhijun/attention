@@ -61,9 +61,9 @@ class RPN(nn.Module):
 		if model == 'vgg':
 			self.features = models.vgg16(pretrained=True).features
 			self.features.__delattr__('30')
-			self.conv1 = Conv2d(512, 512, 3, same_padding=True, bn=True)
-			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False, bn=True)
-			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False, bn=True)
+			self.conv1 = Conv2d(512, 512, 3, same_padding=True)
+			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
+			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 		elif model == 'resnet50' or model == 'resnet101':
 			if model == 'resnet50':
 				resnet = resnet50(pretrained=True)
@@ -71,12 +71,9 @@ class RPN(nn.Module):
 				resnet = resnet101(pretrained=True)
 			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
 										  resnet.layer1, resnet.layer2, resnet.layer3)
-			# self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
-			# self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
-			# self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
-			self.conv1 = Conv2d(1024, 512, 3, same_padding=True, bn=True)
-			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False, bn=True)
-			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False, bn=True)
+			self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
+			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
+			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 
 		# by default, fix the first four layers
 		# network.set_trainable_param(list(self.features.parameters())[:8], requires_grad=False)
