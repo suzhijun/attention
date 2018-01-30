@@ -33,10 +33,8 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 class RPN(nn.Module):
 	_feat_stride = [16, ]
 
-	anchor_scales_kmeans = [19.944, 9.118, 35.648, 42.102, 23.476, 15.882, 6.169, 9.702, 6.072, 32.254, 3.294, 10.148,
-							22.443, 13.831, 16.250, 27.969, 14.181, 27.818, 34.146, 29.812, 14.219, 22.309, 20.360, 24.025, 40.593, ]
-	anchor_ratios_kmeans = [2.631, 2.304, 0.935, 0.654, 0.173, 0.720, 0.553, 0.374, 1.565, 0.463, 0.985, 0.914, 0.734,
-							2.671, 0.209, 1.318, 1.285, 2.717, 0.369, 0.718, 0.319, 0.218, 1.319, 0.442, 1.437, ]
+	anchor_scales_kmeans = [19.944, 9.118, 35.648, 42.102, 23.476, 15.882, 6.169, 9.702, 6.072, 32.254, 3.294, 10.148, 22.443, 13.831, 16.250, 27.969, 14.181, 27.818, 34.146, 29.812, 14.219, 22.309, 20.360, 24.025, 40.593, ]
+	anchor_ratios_kmeans = [2.631, 2.304, 0.935, 0.654, 0.173, 0.720, 0.553, 0.374, 1.565, 0.463, 0.985, 0.914, 0.734, 2.671, 0.209, 1.318, 1.285, 2.717, 0.369, 0.718, 0.319, 0.218, 1.319, 0.442, 1.437, ]
 	anchor_scales_normal = [4, 8, 16, 32, 64]
 	anchor_ratios_normal = [0.25, 0.5, 1, 2, 4]
 
@@ -61,19 +59,18 @@ class RPN(nn.Module):
 		if model == 'vgg':
 			self.features = models.vgg16(pretrained=True).features
 			self.features.__delattr__('30')
-			self.conv1 = Conv2d(512, 512, 3, same_padding=True, bn=True)
-			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False, bn=True)
-			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False, bn=True)
+			self.conv1 = Conv2d(512, 512, 3, same_padding=True)
+			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
+			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 		elif model == 'resnet50' or model == 'resnet101':
 			if model == 'resnet50':
 				resnet = resnet50(pretrained=True)
 			else:
 				resnet = resnet101(pretrained=True)
-			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
-										  resnet.layer1, resnet.layer2, resnet.layer3)
-			self.conv1 = Conv2d(1024, 512, 3, same_padding=True, bn=True)
-			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False, bn=True)
-			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False, bn=True)
+			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,  resnet.layer1, resnet.layer2, resnet.layer3)
+			self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
+			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
+			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 
 		# by default, fix the first four layers
 		# network.set_trainable_param(list(self.features.parameters())[:8], requires_grad=False)
@@ -263,15 +260,15 @@ class FasterRCNN(nn.Module):
 		self.roi_pool = RoIPool(7, 7, 1.0/16)
 
 		if model == 'vgg':
-			self.fc6 = FC(512*7*7, 4096)
+			self.fc6 = FC(512*7*7, 2048)
 		elif model == 'resnet50' or model == 'resnet101':
-			self.fc6 = FC(1024 * 7 * 7, 4096)
+			self.fc6 = FC(1024 * 7 * 7, 2048)
 		else:
 			print('please choose a model')
 
-		self.fc7 = FC(4096, 4096)
-		self.score_fc = FC(4096, self.n_classes, relu=False)
-		self.bbox_fc = FC(4096, self.n_classes * 4, relu=False)
+		self.fc7 = FC(2048, 2048)
+		self.score_fc = FC(2048, self.n_classes, relu=False)
+		self.bbox_fc = FC(2048, self.n_classes * 4, relu=False)
 
 		# loss
 		self.cross_entropy = None
