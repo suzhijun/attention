@@ -52,7 +52,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 
 		self.dropout = dropout
 		# self.rpn = RPN(use_kmeans_anchors)
-		self.rcnn = FasterRCNN(use_kmeans_anchors, n_object_cats, model=base_model)
+		self.rcnn = FasterRCNN(nhidden, use_kmeans_anchors, n_object_cats, model=base_model)
 		self.roi_pool_object = RoIPool(7, 7, 1.0/16)
 		self.roi_pool_phrase = RoIPool(7, 7, 1.0/16)
 		if base_model == 'vgg':

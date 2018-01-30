@@ -246,7 +246,7 @@ class FasterRCNN(nn.Module):
 	MAX_SIZE = 1000
 	PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
 
-	def __init__(self, nhidden, use_kmeans_anchors=False, n_classes=None, model='vgg'):
+	def __init__(self, use_kmeans_anchors=False, n_classes=None, model='vgg'):
 		super(FasterRCNN, self).__init__()
 
 		print('use {}'.format(model))
@@ -260,15 +260,15 @@ class FasterRCNN(nn.Module):
 		self.roi_pool = RoIPool(7, 7, 1.0/16)
 
 		if model == 'vgg':
-			self.fc6 = FC(512*7*7, nhidden)
+			self.fc6 = FC(512*7*7, 2048)
 		elif model == 'resnet50' or model == 'resnet101':
-			self.fc6 = FC(1024 * 7 * 7, nhidden)
+			self.fc6 = FC(1024 * 7 * 7, 2048)
 		else:
 			print('please choose a model')
 
-		self.fc7 = FC(nhidden, nhidden)
-		self.score_fc = FC(nhidden, self.n_classes, relu=False)
-		self.bbox_fc = FC(nhidden, self.n_classes * 4, relu=False)
+		self.fc7 = FC(2048, 2048)
+		self.score_fc = FC(2048, self.n_classes, relu=False)
+		self.bbox_fc = FC(2048, self.n_classes * 4, relu=False)
 
 		# loss
 		self.cross_entropy = None

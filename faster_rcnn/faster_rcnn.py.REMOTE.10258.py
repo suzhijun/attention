@@ -33,8 +33,10 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 class RPN(nn.Module):
 	_feat_stride = [16, ]
 
-	anchor_scales_kmeans = [19.944, 9.118, 35.648, 42.102, 23.476, 15.882, 6.169, 9.702, 6.072, 32.254, 3.294, 10.148, 22.443, 13.831, 16.250, 27.969, 14.181, 27.818, 34.146, 29.812, 14.219, 22.309, 20.360, 24.025, 40.593, ]
-	anchor_ratios_kmeans = [2.631, 2.304, 0.935, 0.654, 0.173, 0.720, 0.553, 0.374, 1.565, 0.463, 0.985, 0.914, 0.734, 2.671, 0.209, 1.318, 1.285, 2.717, 0.369, 0.718, 0.319, 0.218, 1.319, 0.442, 1.437, ]
+	anchor_scales_kmeans = [19.944, 9.118, 35.648, 42.102, 23.476, 15.882, 6.169, 9.702, 6.072, 32.254, 3.294, 10.148,
+							22.443, 13.831, 16.250, 27.969, 14.181, 27.818, 34.146, 29.812, 14.219, 22.309, 20.360, 24.025, 40.593, ]
+	anchor_ratios_kmeans = [2.631, 2.304, 0.935, 0.654, 0.173, 0.720, 0.553, 0.374, 1.565, 0.463, 0.985, 0.914, 0.734,
+							2.671, 0.209, 1.318, 1.285, 2.717, 0.369, 0.718, 0.319, 0.218, 1.319, 0.442, 1.437, ]
 	anchor_scales_normal = [4, 8, 16, 32, 64]
 	anchor_ratios_normal = [0.25, 0.5, 1, 2, 4]
 
@@ -67,7 +69,8 @@ class RPN(nn.Module):
 				resnet = resnet50(pretrained=True)
 			else:
 				resnet = resnet101(pretrained=True)
-			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,  resnet.layer1, resnet.layer2, resnet.layer3)
+			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
+										  resnet.layer1, resnet.layer2, resnet.layer3)
 			self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
 			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
 			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)

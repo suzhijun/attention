@@ -67,7 +67,12 @@ class RPN(nn.Module):
 				resnet = resnet50(pretrained=True)
 			else:
 				resnet = resnet101(pretrained=True)
+<<<<<<< HEAD
 			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,  resnet.layer1, resnet.layer2, resnet.layer3)
+=======
+			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
+										  resnet.layer1, resnet.layer2, resnet.layer3)
+>>>>>>> 56f7c0d48a205d725aeb23fd7342456c397fc391
 			self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
 			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
 			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
@@ -260,6 +265,17 @@ class FasterRCNN(nn.Module):
 		self.roi_pool = RoIPool(7, 7, 1.0/16)
 
 		if model == 'vgg':
+<<<<<<< HEAD
+			self.fc6 = FC(512*7*7, 2048)
+		elif model == 'resnet50' or model == 'resnet101':
+			self.fc6 = FC(1024 * 7 * 7, 2048)
+		else:
+			print('please choose a model')
+
+		self.fc7 = FC(2048, 2048)
+		self.score_fc = FC(2048, self.n_classes, relu=False)
+		self.bbox_fc = FC(2048, self.n_classes * 4, relu=False)
+=======
 			self.fc6 = FC(512*7*7, nhidden)
 		elif model == 'resnet50' or model == 'resnet101':
 			self.fc6 = FC(1024 * 7 * 7, nhidden)
@@ -269,6 +285,7 @@ class FasterRCNN(nn.Module):
 		self.fc7 = FC(nhidden, nhidden)
 		self.score_fc = FC(nhidden, self.n_classes, relu=False)
 		self.bbox_fc = FC(nhidden, self.n_classes * 4, relu=False)
+>>>>>>> 56f7c0d48a205d725aeb23fd7342456c397fc391
 
 		# loss
 		self.cross_entropy = None
