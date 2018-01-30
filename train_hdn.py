@@ -181,13 +181,13 @@ def main():
 
 			# updating learning policy
 			if epoch % args.step_size == args.step_size-1:
-				lr /= 10
+				lr /= 5
 				args.lr = lr
 				print '[learning rate: {}]'.format(lr)
 
 				args.enable_clip_gradient = False
 				args.train_all = True
-				optimizer_select = 3
+				optimizer_select = 2
 				# update optimizer and correponding requires_grad state
 				optimizer = network.get_optimizer(lr, optimizer_select, args,
 				                                  basenet_features, rpn_features, rcnn_feature, hdn_features)

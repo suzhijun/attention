@@ -112,3 +112,5 @@ eval/*.json
 *.out
 .idea/
 win2unix.sh
+run.sh
+run_faster.sh

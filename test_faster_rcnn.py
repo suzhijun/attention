@@ -22,6 +22,7 @@ parser.add_argument('--model_name', type=str, default='Faster_RCNN', help='model
 parser.add_argument('--base_model', type=str, default='vgg', help='base model: vgg or resnet50 or resnet101')
 parser.add_argument('--resume_training', default=True, help='Resume training from the model [resume_model]')
 parser.add_argument('--resume_model', type=str, default='./output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The model we resume')
+parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expected feature length of message passing')
 args = parser.parse_args()
 
 
@@ -35,7 +36,8 @@ def main():
 
     # train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
-    net = FasterRCNN(use_kmeans_anchors=args.use_kmeans_anchors, n_classes=len(object_classes), model=args.base_model)
+    net = FasterRCNN(nhidden=args.mps_feature_len, use_kmeans_anchors=args.use_kmeans_anchors,
+                     n_classes=len(object_classes), model=args.base_model)
     network.load_net(args.resume_model, net)
     # network.set_trainable(net.features, requires_grad=False)
     net.cuda()

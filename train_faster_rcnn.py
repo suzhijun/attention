@@ -18,13 +18,13 @@ parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 ## training settings
 parser.add_argument('--lr', type=float, default=0.01, help='To disable the Lanuage Model ')
 parser.add_argument('--max_epoch', type=int, default=12, metavar='N', help='max iterations for training')
-parser.add_argument('--momentum', type=float, default=0.95, metavar='M', help='percentage of past parameters to store')
+parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
 parser.add_argument('--log_interval', type=int, default=10, help='Interval for Logging')
 parser.add_argument('--clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
 parser.add_argument('--step_size', type=int, default=3, help='step to decay the learning rate')
 parser.add_argument('--base_model', type=str, default='resnet101', help='base model: vgg or resnet50 or resnet101')
-
+parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expected feature length of message passing')
 ## Environment Settings
 parser.add_argument('--pretrained_model', type=str, default='model/pretrained_models/VGG_imagenet.npy',
 					help='Path for the to-evaluate model')
@@ -48,7 +48,7 @@ def main():
 
 	train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
 	test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=8, pin_memory=True)
-	net = FasterRCNN(use_kmeans_anchors=args.use_kmeans_anchors, n_classes=len(object_classes), model=args.base_model)
+	net = FasterRCNN(nhidden=args.mps_feature_len, use_kmeans_anchors=args.use_kmeans_anchors, n_classes=len(object_classes), model=args.base_model)
 	if args.resume_model:
 		print 'Resume training from: {}'.format(args.resume_model)
 		if len(args.resume_model) == 0:
@@ -76,7 +76,7 @@ def main():
 		# update learning rate
 		if epoch%args.step_size == args.step_size-1:
 			args.clip_gradient = False
-			args.lr /= 10
+			args.lr /= 5
 			for param_group in optimizer.param_groups:
 				param_group['lr'] = args.lr
 

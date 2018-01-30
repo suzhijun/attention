@@ -39,9 +39,9 @@ class SpacialConv(nn.Module):
 	def __init__(self, pooling_size=32):
 		super(SpacialConv, self).__init__()
 		self.pooling_size = pooling_size
-		self.conv1 = Conv2d(in_channels=2, out_channels=96, kernel_size=5, stride=2, relu=True, same_padding=True, bn=True)
-		self.conv2 = Conv2d(in_channels=96, out_channels=128, kernel_size=5, stride=2, relu=False, same_padding=True, bn=True)
-		self.conv3 = Conv2d(in_channels=128, out_channels=64, kernel_size=8, stride=1, relu=True, same_padding=False, bn=True)
+		self.conv1 = Conv2d(in_channels=2, out_channels=96, kernel_size=5, stride=2, relu=True, same_padding=True)
+		self.conv2 = Conv2d(in_channels=96, out_channels=128, kernel_size=5, stride=2, relu=False, same_padding=True)
+		self.conv3 = Conv2d(in_channels=128, out_channels=64, kernel_size=8, stride=1, relu=True, same_padding=False)
 
 	def forward(self, object_rois, mat_phrase, im_info):
 		num_rois = mat_phrase.size
