@@ -35,6 +35,7 @@ parser.add_argument('--load_RCNN', default=True, help='Resume training from RCNN
 parser.add_argument('--RCNN_model', type=str, default = './output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The Model used for resuming from RCNN')
 parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
 parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
+
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
 parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expected feature length of message passing')
@@ -52,6 +53,7 @@ parser.add_argument('--nesterov', action='store_true', help='Set to use the nest
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
 parser.add_argument('--evaluate', action='store_true', help='Only use the testing mode')
 parser.add_argument('--use_rpn_scores', default=False, help='Use rpn scores to help to predict')
+parser.add_argument('--use_gt_boxes', action='store_true', help='Use GT boxes')
 
 args = parser.parse_args()
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -317,7 +319,7 @@ def test(test_loader, net, top_Ns, object_classes):
 		# pdb.set_trace()
 		total_cnt_t, rel_cnt_correct_t, object_rois, classes_scores, classes_tf, classes_gt_num = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0],
-			top_Ns = top_Ns, use_gt_boxes=True, nms=False, nms_thresh=0.4, thresh=0.5, use_rpn_scores=args.use_rpn_scores)
+			top_Ns = top_Ns, use_gt_boxes=args.use_gt_boxes, nms=False, nms_thresh=0.4, thresh=0.5, use_rpn_scores=args.use_rpn_scores)
 		box_num += object_rois.size(0)
 		obj_correct_cnt_t, obj_total_cnt_t = check_recall(object_rois/im_info[0][2], gt_objects.numpy()[0], 64)
 		obj_correct_cnt += obj_correct_cnt_t
