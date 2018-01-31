@@ -25,7 +25,7 @@ parser.add_argument('--lr', type=float, default=0.0005, metavar='LR', help='base
 parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
 parser.add_argument('--log_interval', type=int, default=100, help='Interval for Logging')
-parser.add_argument('--step_size', type=int, default=2, help='Step size for reduce learning rate')
+parser.add_argument('--step_size', type=int, default=6, help='Step size for reduce learning rate')
 
 # structure settings
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
@@ -166,7 +166,7 @@ def main():
 			network.save_net(save_name, net)
 			print('save model: {}'.format(save_name))
 
-			recall = test(test_loader, target_net, top_Ns)
+			recall = test(test_loader, target_net, top_Ns, train_set.object_classes)
 
 			if np.all(recall > best_recall):
 				best_recall = recall
@@ -180,13 +180,13 @@ def main():
 					top_N=top_N, recall=recall[idx] * 100, best_recall=best_recall[idx] * 100))
 
 			# updating learning policy
-			if epoch % args.step_size == args.step_size-1:
+			if epoch%(args.step_size-1)==0 or epoch%(args.step_size+1)==0:
 				lr /= 5
 				args.lr = lr
 				print '[learning rate: {}]'.format(lr)
 
 				args.enable_clip_gradient = False
-				args.train_all = True
+				args.train_all = False
 				optimizer_select = 2
 				# update optimizer and correponding requires_grad state
 				optimizer = network.get_optimizer(lr, optimizer_select, args,

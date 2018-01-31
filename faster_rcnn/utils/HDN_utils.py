@@ -19,16 +19,20 @@ def get_model_name(arguments):
     else:
         arguments.model_name += '_{}_iters'.format(arguments.MPS_iter)
 
-
-    # if arguments.use_kernel_function:
-    #     arguments.model_name += '_with_kernel'
-    if arguments.load_RPN or arguments.resume_model:
-        arguments.model_name += '_alltrain'
-    else:
-        arguments.model_name += '_end2end'
+    arguments.model_name += '_{}'.format(arguments.dataset_option)
+    arguments.model_name += '_{}'.format(arguments.base_model)
+    arguments.model_name += '_{}'.format(str(arguments.mps_feature_len))
+    if arguments.use_kmeans_anchors:
+	    arguments.model_name += '_kmeans'
+    if arguments.resume_model:
+        arguments.model_name += '_alt'
+    elif arguments.load_RCNN:
+	    arguments.model_name += '_RCNN'
+    elif arguments.load_RPN:
+        arguments.model_name += '_RPN'
+	    
     if arguments.dropout:
         arguments.model_name += '_dropout'
-    arguments.model_name += '_{}'.format(arguments.dataset_option)
     # if arguments.disable_language_model:
     #     arguments.model_name += '_no_caption'
     # else:
