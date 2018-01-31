@@ -515,10 +515,7 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			self.interpret_HDN(cls_prob_object, bbox_object, object_rois,
 			                   cls_prob_predicate, mat_phrase, rpn_scores_object, im_info,
 			                   nms=nms, nms_thresh=nms_thresh, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
-				# self.interpret_RMRPN(cls_prob_object, bbox_object, object_rois,
-				# 					 cls_prob_predicate, bbox_predicate, predicate_rois,
-				# 					 mat_phrase, rpn_scores_object, im_info,
-				# 					 nms=nms, top_N=max(top_Ns), use_gt_boxes=use_gt_boxes, use_rpn_scores=use_rpn_scores)
+
 
 		gt_objects[:, :4] /= im_info[0][2]
 		rel_cnt, rel_correct_cnt = check_relationship_recall(gt_objects, gt_relationships,
