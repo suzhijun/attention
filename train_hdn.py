@@ -42,11 +42,11 @@ parser.add_argument('--MPS_iter', type=int, default=2, help='Iterations for Mess
 parser.add_argument('--base_model', type=str, default='vgg', help='base model: vgg or resnet50 or resnet101')
 
 # Environment Settings
-parser.add_argument('--train_all', default=True, help='Train all the mode')
+parser.add_argument('--train_all', default=False, help='Train all the mode')
 parser.add_argument('--seed', type=int, default=1, help='set seed to some constant value to reproduce experiments')
 parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
 parser.add_argument('--output_dir', type=str, default='./output/HDN', help='Location to output the model')
-parser.add_argument('--model_name', type=str, default='HDN_RCNN', help='The name for saving model.')
+parser.add_argument('--model_name', type=str, default='HDN', help='The name for saving model.')
 parser.add_argument('--nesterov', action='store_true', help='Set to use the nesterov for SGD')
 parser.add_argument('--optimizer', type=int, default=0, help='which optimizer used for optimize model [0: SGD | 1: Adam | 2: Adagrad]')
 parser.add_argument('--evaluate', action='store_true', help='Only use the testing mode')
@@ -181,7 +181,7 @@ def main():
 
 			# updating learning policy
 			if epoch%(args.step_size-1)==0 or epoch%(args.step_size+1)==0:
-				lr /= 5
+				lr /= 10
 				args.lr = lr
 				print '[learning rate: {}]'.format(lr)
 
