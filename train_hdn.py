@@ -181,7 +181,7 @@ def main():
 					top_N=top_N, recall=recall[idx] * 100, best_recall=best_recall[idx] * 100))
 
 			# updating learning policy
-			if epoch%(args.step_size-1)==0 or epoch%(args.step_size+1)==0:
+			if (epoch+1)%args.step_size==0 or epoch%(args.step_size+1)==0:
 				lr /= 10
 				args.lr = lr
 				print '[learning rate: {}]'.format(lr)
