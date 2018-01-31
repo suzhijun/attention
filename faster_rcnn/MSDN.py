@@ -498,13 +498,13 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				 nms=False, nms_thresh=0.4, top_Ns = [100], use_gt_boxes=False, only_predicate=False, thresh=0.5,
 				 use_rpn_scores=False):
 
-		# if use_gt_regions:
-		# 	gt_boxes_regions = gt_regions[:, :4] * im_info[2]
-		# else:
-		# 	gt_boxes_regions = None
+		if use_gt_boxes:
+			gt_boxes_object = gt_objects[:, :4]
+		else:
+			gt_boxes_object = None
 
 		object_result, predicate_result = \
-			self(im_data, im_info, gt_objects, gt_relationships=None)
+			self(im_data, im_info, gt_boxes_object, gt_relationships=None)
 
 		cls_prob_object, bbox_object, object_rois, rpn_scores_object = object_result
 		cls_prob_predicate, predicate_rois, mat_phrase = predicate_result

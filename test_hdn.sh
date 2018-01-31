@@ -1,2 +1,2 @@
 python train_hdn.py \
-   --gpu=0  --evaluate  --base_model=vgg  --dataset_option=small  --MPS_iter=2  --log_interval=10  --resume_model  --HDN_model=./output/HDN/HDN_RCNN_2_iters_alltrain_small_resume_SGD_best.h5
+   --gpu=0  --evaluate  --mps_feature_len=1024  --base_model=vgg  --dataset_option=small  --MPS_iter=1  --log_interval=10  --resume_model  --HDN_model=./output/HDN/HDN_RCNN_1_iters_small_vgg_1024_kmeans_RCNN_SGD_epoch_0.h5

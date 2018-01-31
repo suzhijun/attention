@@ -88,10 +88,10 @@ def group_features(net_):
     rcnn_feature_len = len(list(net_.rcnn.parameters())) - rpn_feature_len - basenet_features_len
     rcnn_feature = list(net_.rcnn.parameters())[(rpn_feature_len+basenet_features_len):]
     hdn_features = list(net_.parameters())[(rcnn_feature_len + rpn_feature_len + basenet_features_len):]
-    print 'vgg feature length:', basenet_features_len
+    print 'basenet feature length:', basenet_features_len
     print 'rpn feature length:', rpn_feature_len
     print 'rcnn feature length:', rcnn_feature_len
-    print 'HDN feature length:', len(hdn_features)
+    print 'hdn feature length:', len(hdn_features)
     return basenet_features, rpn_features, rcnn_feature, hdn_features
 
 

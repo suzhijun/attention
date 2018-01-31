@@ -7,6 +7,7 @@ import numpy.random as npr
 import argparse
 
 import torch
+import pdb
 
 from faster_rcnn import network
 from faster_rcnn.MSDN import Hierarchical_Descriptive_Model
@@ -21,8 +22,8 @@ parser = argparse.ArgumentParser('Options for training Hierarchical Descriptive 
 
 parser.add_argument('--gpu', type=str, default='0', help='GPU id')
 # Training parameters
-parser.add_argument('--lr', type=float, default=0.0005, metavar='LR', help='base learning rate for training')
-parser.add_argument('--max_epoch', type=int, default=8, metavar='N', help='max iterations for training')
+parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='base learning rate for training')
+parser.add_argument('--max_epoch', type=int, default=10, metavar='N', help='max iterations for training')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M', help='percentage of past parameters to store')
 parser.add_argument('--log_interval', type=int, default=100, help='Interval for Logging')
 parser.add_argument('--step_size', type=int, default=6, help='Step size for reduce learning rate')
@@ -30,15 +31,15 @@ parser.add_argument('--step_size', type=int, default=6, help='Step size for redu
 # structure settings
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
 parser.add_argument('--HDN_model', default='./output/HDN/HDN_RCNN_small_vgg_notrain_rcnn_1_iters_alltrain_small_resume_SGD_best.h5', help='The model used for resuming entire training')
-parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
-parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--load_RCNN', default=True, help='Resume training from RCNN')
 parser.add_argument('--RCNN_model', type=str, default = './output/detection/Faster_RCNN_small_vgg_12epoch_epoch_11.h5', help='The Model used for resuming from RCNN')
+parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
+parser.add_argument('--RPN_model', type=str, default = './output/RPN/RPN_relationship_best_kmeans.h5', help='The Model used for resuming from RPN')
 parser.add_argument('--enable_clip_gradient', action='store_true', help='Whether to clip the gradient')
 parser.add_argument('--use_kmeans_anchors', default=True, help='Whether to use kmeans anchors')
 parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expected feature length of message passing')
 parser.add_argument('--dropout', action='store_true', help='To enables the dropout')
-parser.add_argument('--MPS_iter', type=int, default=2, help='Iterations for Message Passing')
+parser.add_argument('--MPS_iter', type=int, default=1, help='Iterations for Message Passing')
 parser.add_argument('--base_model', type=str, default='vgg', help='base model: vgg or resnet50 or resnet101')
 
 # Environment Settings
@@ -313,11 +314,12 @@ def test(test_loader, net, top_Ns, object_classes):
 
 	for i, (im_data, im_info, gt_objects, gt_relationships) in enumerate(test_loader):
 		# Forward pass
+		# pdb.set_trace()
 		total_cnt_t, rel_cnt_correct_t, object_rois, classes_scores, classes_tf, classes_gt_num = net.evaluate(
 			im_data, im_info, gt_objects.numpy()[0], gt_relationships.numpy()[0],
-			top_Ns = top_Ns, nms=False, nms_thresh=0.4, thresh=0.5, use_rpn_scores=args.use_rpn_scores)
+			top_Ns = top_Ns, use_gt_boxes=True, nms=False, nms_thresh=0.4, thresh=0.5, use_rpn_scores=args.use_rpn_scores)
 		box_num += object_rois.size(0)
-		obj_correct_cnt_t, obj_total_cnt_t = check_recall(object_rois, gt_objects.numpy()[0], 64)
+		obj_correct_cnt_t, obj_total_cnt_t = check_recall(object_rois/im_info[0][2], gt_objects.numpy()[0], 64)
 		obj_correct_cnt += obj_correct_cnt_t
 		obj_total_cnt += obj_total_cnt_t
 		rel_cnt += total_cnt_t
