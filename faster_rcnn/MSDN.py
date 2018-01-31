@@ -16,6 +16,7 @@ from faster_rcnn import FasterRCNN
 from fast_rcnn.config import cfg
 from utils.cython_bbox import bbox_overlaps, bbox_intersections
 from utils.make_cover import compare_rel_rois
+from utils.map_eval import image_cls_eval
 
 import network
 from network import Conv2d, FC, SpacialConv
@@ -38,14 +39,14 @@ def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 
 class Hierarchical_Descriptive_Model(HDN_base):
 	def __init__(self, nhidden,
-	             n_object_cats,
-	             n_predicate_cats,
-	             MPS_iter,
-	             object_loss_weight,
+				 n_object_cats,
+				 n_predicate_cats,
+				 MPS_iter,
+				 object_loss_weight,
 				 predicate_loss_weight,
 				 dropout=False,
 				 use_kmeans_anchors=True,
-	             base_model='vgg'):
+				 base_model='vgg'):
 
 		super(Hierarchical_Descriptive_Model, self).__init__(nhidden, n_object_cats, n_predicate_cats,  MPS_iter, object_loss_weight,
 				 predicate_loss_weight, dropout)
@@ -202,8 +203,6 @@ class Hierarchical_Descriptive_Model(HDN_base):
 			torch.cuda.synchronize()
 			print '\t[Loss]:  %.3fs'%self.timer.toc(average=False)
 
-		cls_prob_object = F.softmax(cls_score_object)
-		cls_prob_predicate = F.softmax(cls_score_predicate)
 
 		return (cls_prob_object, bbox_object, object_rois, scores_object), (cls_prob_predicate, phrase_rois, mat_phrase)
 				# (cls_prob_predicate, bbox_phrase, phrase_rois, mat_phrase)
@@ -499,19 +498,13 @@ class Hierarchical_Descriptive_Model(HDN_base):
 				 nms=False, nms_thresh=0.4, top_Ns = [100], use_gt_boxes=False, only_predicate=False, thresh=0.5,
 				 use_rpn_scores=False):
 
-		if use_gt_boxes:
-			gt_boxes_object = gt_objects[:, :4] * im_info[2]
-		else:
-			gt_boxes_object = None
-
-
 		# if use_gt_regions:
 		# 	gt_boxes_regions = gt_regions[:, :4] * im_info[2]
 		# else:
 		# 	gt_boxes_regions = None
 
 		object_result, predicate_result = \
-			self(im_data, im_info, gt_boxes_object, gt_relationships=None)
+			self(im_data, im_info, gt_objects, gt_relationships=None)
 
 		cls_prob_object, bbox_object, object_rois, rpn_scores_object = object_result
 		cls_prob_predicate, predicate_rois, mat_phrase = predicate_result
@@ -533,5 +526,47 @@ class Hierarchical_Descriptive_Model(HDN_base):
 										subject_boxes, object_boxes, top_Ns, thresh=thresh,
 										only_predicate=only_predicate)
 
-		return rel_cnt, rel_correct_cnt, object_rois
+		# calculate map
+		classes_scores, classes_tf, classes_gt_num =\
+		self.map_eval(cls_prob_object, bbox_object, object_rois, gt_objects, im_info, nms=False)
+
+		return rel_cnt, rel_correct_cnt, object_rois, classes_scores, classes_tf, classes_gt_num
+
+
+	def map_eval(self, cls_prob, bbox_pred, rois, gt_boxes, im_info, max_per_image=100,
+			   score_thresh=0.05, overlap_thresh=0.5, nms=True, nms_thresh=0.6):
+		classes_scores = []  # length = 150
+		classes_tf = []
+		classes_gt_num = []
+		image_scores = np.array([])
+		for j in range(1, self.n_classes_obj):
+			scores = cls_prob.data.cpu().numpy()
+			boxes = rois.data.cpu().numpy()[:, 1:5] / im_info[0][2]
+			# boxes = rois.data.cpu().numpy()[:, 1:5]
+			# Apply bounding-box regression deltas
+			box_deltas = bbox_pred.data.cpu().numpy()
+			pred_boxes = bbox_transform_inv_hdn(boxes, box_deltas)
+			pred_boxes = clip_boxes(pred_boxes, im_info[0][:2] / im_info[0][2])
+			# pred_boxes = clip_boxes(pred_boxes, im_info[0][:2])
+
+			# May be there is a problem, for one roi could be assigned to many gt boxes
+			# How to set the score thresh is a big problem
+			cls_scores, cls_tp, cls_gt_num = \
+				image_cls_eval(scores[:, j], pred_boxes[:, j*4:(j+1)*4], gt_boxes, j,
+							   score_thresh=score_thresh, overlap_thresh=overlap_thresh, nms=nms, nms_thresh=nms_thresh)
+			classes_scores += [cls_scores]
+			classes_tf += [cls_tp]
+			classes_gt_num += [cls_gt_num]
+			image_scores = np.append(image_scores, cls_scores)
+
+		# Limit to max_per_image detections *over all classes*
+		if image_scores.size > max_per_image:
+			image_thresh = np.sort(image_scores)[-max_per_image]
+			for k in range(self.n_classes_obj-1):
+				keep = np.where(classes_scores[k] >= image_thresh)
+				classes_scores[k] = classes_scores[k][keep]
+				classes_tf[k] = classes_tf[k][keep]
+
+		return classes_scores, classes_tf, classes_gt_num
+
 
