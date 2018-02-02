@@ -28,7 +28,7 @@ parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expec
 ## Environment Settings
 parser.add_argument('--pretrained_model', type=str, default='model/pretrained_models/VGG_imagenet.npy',
 					help='Path for the to-evaluate model')
-parser.add_argument('--dataset_option', type=str, default='small', help='The dataset to use (small | normal | fat)')
+parser.add_argument('--dataset_option', type=str, default='all', help='The dataset to use (small | normal | fat | all)')
 parser.add_argument('--output_dir', type=str, default='./output/detection', help='Location to output the model')
 parser.add_argument('--model_name', type=str, default='Faster_RCNN_resnet101', help='model name for snapshot')
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
@@ -193,7 +193,7 @@ def evaluate(test_loader, target_net, object_classes, score_thresh=0.00, overlap
         total_cnt += total_cnt_t
         batch_time.update(time.time() - end)
         end = time.time()
-        if (i+1)%500 == 0 and i > 0:
+        if (i+1)%args.log_interval == 0:
 	        print('[{0}/{6}]  Time: {1:2.3f}s/img).'
 	              '\t[object] Avg: {2:2.2f} Boxes/im, Top-64 recall: {3:2.3f} ({4:d}/{5:d})'.format(
 		        i+1, batch_time.avg, box_num/float(i+1), correct_cnt/float(total_cnt)*100,

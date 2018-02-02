@@ -61,11 +61,13 @@ class visual_genome(data.Dataset):
 		self.inverse_weight_predicate = self.inverse_weight_predicate / self.inverse_weight_predicate.min()
 		# print self.inverse_weight_predicate
 		ann_file_name = {'vg_normal_train': 'train.json',
-						   'vg_normal_test': 'test.json',
-						   'vg_small_train': 'train_small.json',
-						   'vg_small_test': 'test_small.json',
-						   'vg_fat_train': 'train_fat.json',
-						   'vg_fat_test': 'test_small.json'}
+						 'vg_normal_test': 'test.json',
+						 'vg_small_train': 'train_small.json',
+						 'vg_small_test': 'test_small.json',
+						 'vg_fat_train': 'train_fat.json',
+						 'vg_fat_test': 'test_small.json',
+		                 'vg_all_train': 'train_all.json',
+		                 'vg_all_test': 'test_all.json'}
 
 		ann_file_path = osp.join(annotation_dir, ann_file_name[self.name])
 		self.annotations = json.load(open(ann_file_path))
