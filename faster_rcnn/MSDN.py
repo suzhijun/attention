@@ -21,7 +21,8 @@ from utils.map_eval import image_cls_eval
 import network
 from network import Conv2d, FC, SpacialConv
 # from roi_pooling.modules.roi_pool_py import RoIPool
-from roi_pooling.modules.roi_pool import RoIPool
+# from roi_pooling.modules.roi_pool import RoIPool
+from roi_align.modules.roi_align import RoIAlign
 from MSDN_base import HDN_base
 
 
@@ -54,8 +55,8 @@ class Hierarchical_Descriptive_Model(HDN_base):
 		self.dropout = dropout
 		# self.rpn = RPN(use_kmeans_anchors)
 		self.rcnn = FasterRCNN(nhidden, use_kmeans_anchors, n_object_cats, model=base_model)
-		self.roi_pool_object = RoIPool(7, 7, 1.0/16)
-		self.roi_pool_phrase = RoIPool(7, 7, 1.0/16)
+		# self.roi_pool_object = RoIPool(7, 7, 1.0/16)
+		self.roi_pool_phrase = RoIAlign(7, 7, 1.0/16)
 		if base_model == 'vgg':
 			# self.fc6 = FC(512*7*7, nhidden)
 			self.fc6_phrase = FC(512*7*7, nhidden, relu=True)

@@ -17,7 +17,8 @@ from fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
 import network
 from network import Conv2d, FC
 # from roi_pooling.modules.roi_pool_py import RoIPool
-from roi_pooling.modules.roi_pool import RoIPool
+# from roi_pooling.modules.roi_pool import RoIPool
+from roi_align.modules.roi_align import RoIAlign
 import torchvision.models as models
 from resnet import resnet50, resnet101
 
@@ -257,7 +258,7 @@ class FasterRCNN(nn.Module):
 		self.n_classes = n_classes
 
 		self.rpn = RPN(use_kmeans_anchors, model=model)
-		self.roi_pool = RoIPool(7, 7, 1.0/16)
+		self.roi_pool = RoIAlign(7, 7, 1.0/16)
 
 		if model == 'vgg':
 			self.fc6 = FC(512*7*7, nhidden)
