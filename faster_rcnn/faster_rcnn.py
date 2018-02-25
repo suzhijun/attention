@@ -58,16 +58,16 @@ class RPN(nn.Module):
 		self.anchor_num = len(self.anchor_scales)
 
 		if model == 'vgg':
-			self.features = models.vgg16(pretrained=True).features
+			self.features = models.vgg16(pretrained=False).features
 			self.features.__delattr__('30')
 			self.conv1 = Conv2d(512, 512, 3, same_padding=True)
 			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
 			self.bbox_conv = Conv2d(512, self.anchor_num*4, 1, relu=False, same_padding=False)
 		elif model == 'resnet50' or model == 'resnet101':
 			if model == 'resnet50':
-				resnet = resnet50(pretrained=True)
+				resnet = resnet50(pretrained=False)
 			else:
-				resnet = resnet101(pretrained=True)
+				resnet = resnet101(pretrained=False)
 			self.features = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,  resnet.layer1, resnet.layer2, resnet.layer3)
 			self.conv1 = Conv2d(1024, 512, 3, same_padding=True)
 			self.score_conv = Conv2d(512, self.anchor_num*2, 1, relu=False, same_padding=False)
