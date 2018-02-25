@@ -30,7 +30,7 @@ parser.add_argument('--step_size', type=int, default=6, help='Step size for redu
 
 # structure settings
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
-parser.add_argument('--HDN_model', default='./output/HDN/HDN_RCNN_small_vgg_notrain_rcnn_1_iters_alltrain_small_resume_SGD_best.h5', help='The model used for resuming entire training')
+parser.add_argument('--HDN_model', default='./output/HDN/HDN_1_iters_all_vgg_2048_kmeans_RCNN_SGD_best.h5', help='The model used for resuming entire training')
 parser.add_argument('--load_RCNN', default=True, help='Resume training from RCNN')
 parser.add_argument('--RCNN_model', type=str, default = './output/detection/Faster_RCNN_vgg_12epoch_2048_best.h5', help='The Model used for resuming from RCNN')
 parser.add_argument('--load_RPN', default=False, help='Resume training from RPN')
