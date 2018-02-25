@@ -114,3 +114,4 @@ eval/*.json
 win2unix.sh
 run.sh
 run_faster.sh
+nohup/
