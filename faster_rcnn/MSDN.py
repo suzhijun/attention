@@ -20,7 +20,6 @@ from utils.map_eval import image_cls_eval
 
 import network
 from network import Conv2d, FC, SpacialConv
-# from roi_pooling.modules.roi_pool_py import RoIPool
 # from roi_pooling.modules.roi_pool import RoIPool
 from roi_align.modules.roi_align import RoIAlign
 from MSDN_base import HDN_base

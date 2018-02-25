@@ -19,7 +19,7 @@ from ..fast_rcnn.config import cfg
 from ..utils.blob import prep_im_for_blob, im_list_to_blob
 
 class visual_genome(data.Dataset):
-	def __init__(self, set_option, image_set, annotation_folder='top_150_50'):
+	def __init__(self, set_option, image_set, annotation_folder='top_150_50_new'):
 		self._name = 'vg_' + set_option + '_' + image_set
 		# self.unknown_token='<unknown>'
 		# self.start_token='<start>'
