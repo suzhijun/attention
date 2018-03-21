@@ -15,12 +15,13 @@ from rpn_msr.proposal_target_layer import proposal_target_layer as proposal_targ
 from fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
 
 import network
-from network import Conv2d, FC
+from network import Conv2d, FC, SpacialConv_new
 # from roi_pooling.modules.roi_pool_py import RoIPool
 # from roi_pooling.modules.roi_pool import RoIPool
 from roi_align.modules.roi_align import RoIAlign
 import torchvision.models as models
 from resnet import resnet50, resnet101
+from relation_module.object_relation_module import  ObjectRelationModule
 
 def nms_detections(pred_boxes, scores, nms_thresh, inds=None):
 	dets = np.hstack((pred_boxes,
@@ -266,14 +267,19 @@ class FasterRCNN(nn.Module):
 			self.fc6 = FC(1024 * 7 * 7, nhidden)
 		else:
 			print('please choose a model')
-
+		self.spacial_conv = SpacialConv_new(pooling_size=32, d_g=64)
+ 		self.object_relation1 = ObjectRelationModule(nhidden, 64, 64, 64)
 		self.fc7 = FC(nhidden, nhidden)
+		self.object_relation2 = ObjectRelationModule(nhidden, 64, 64, 64)
 		self.score_fc = FC(nhidden, self.n_classes, relu=False)
 		self.bbox_fc = FC(nhidden, self.n_classes * 4, relu=False)
 
 		# loss
 		self.cross_entropy = None
 		self.loss_box = None
+
+
+
 
 	@property
 	def loss(self):
@@ -285,7 +291,6 @@ class FasterRCNN(nn.Module):
 
 	def forward(self, im_data, im_info, gt_boxes, dropout=True):
 		features, rois, scores = self.rpn(im_data, im_info, gt_boxes)
-
 		if self.training:
 			roi_data = self.proposal_target_layer(rois, gt_boxes, self.n_classes, dontcare_areas=None)
 			rois = roi_data[0]
@@ -293,9 +298,14 @@ class FasterRCNN(nn.Module):
 		pooled_features = self.roi_pool(features, rois)
 		pooled_features = pooled_features.view(pooled_features.size()[0], -1)
 		pooled_features = self.fc6(pooled_features)
+		mat_relation = generate_mat_relation(rois)
+		geometry_relation = self.spacial_conv(rois, mat_relation, im_info)
+		pooled_features = self.object_relation1(rois, pooled_features, im_info, geometry_relation)
 		if dropout:
 			pooled_features = F.dropout(pooled_features, training=self.training)
 		pooled_features = self.fc7(pooled_features)
+		pooled_features = self.object_relation2(rois, pooled_features, im_info, geometry_relation)
+
 		if dropout:
 			pooled_features = F.dropout(pooled_features, training=self.training)
 
@@ -457,4 +467,12 @@ class FasterRCNN(nn.Module):
 	#         key = '{}.bias'.format(k)
 	#         param = torch.from_numpy(params['{}/biases:0'.format(v)])
 	#         own_dict[key].copy_(param)
-
+def generate_mat_relation(rois):
+	rois = rois.data.cpu().numpy()
+	num = rois.shape[0]
+	mat_relation = np.zeros([num * num, 2], dtype=int)
+	temp = np.arange(num)
+	mat_relation[:, 0] = temp.repeat(num)
+	mat_relation[:, 1] = np.tile(temp, num)
+#        mat_relation = np_to_variable(mat_relation, is_cuda=True)
+	return mat_relation

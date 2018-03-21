@@ -317,11 +317,13 @@ __C.EPS = 1e-14
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
 # Data directory
-__C.DATA_DIR = osp.abspath('./data/VisualGenome')
+#__C.DATA_DIR = osp.abspath('./data/VisualGenome')
+__C.DATA_DIR = osp.abspath('/home/wanbo/dataset/VisualGenome')
 
 # Image Data directory
 # __C.IMG_DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'data', 'visual_genome', 'VG_100K_images'))
-__C.IMG_DATA_DIR = osp.abspath('./data/VisualGenome/VG_100K_images')
+#__C.IMG_DATA_DIR = osp.abspath('./data/VisualGenome/VG_100K_images')
+__C.IMG_DATA_DIR = osp.abspath('/home/wanbo/dataset/VisualGenome/VG_100K_images')
 
 # Model directory
 __C.MODELS_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'models', 'pascal_voc'))

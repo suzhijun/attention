@@ -46,7 +46,8 @@ class SpacialConv(nn.Module):
 	def forward(self, object_rois, mat_phrase, im_info):
 		num_rois = mat_phrase.size
 		x = np.zeros([num_rois, self.pooling_size, self.pooling_size])
-		weight = (32/im_info[:, :2].repeat(1, 2)).numpy()
+		weight = (self.pooling_size/im_info[:, :2].repeat(1, 2)).numpy()
+		weight =weight[:, [1, 0, 3, 2]]
 		coords = np.round(object_rois.cpu().data.numpy()[mat_phrase.reshape(-1)][:, 1:] * weight).astype(int)
 		x1, y1, x2, y2 = coords.T
 		for i in range(num_rois):
@@ -56,6 +57,29 @@ class SpacialConv(nn.Module):
 		x = self.conv2(x)
 		x = self.conv3(x)
 		return x
+
+class SpacialConv_new(nn.Module):
+    def __init__(self, pooling_size=32, d_g=64):
+        super(SpacialConv_new, self).__init__()
+        self.pooling_size = pooling_size
+        self.conv1 = Conv2d(in_channels=2, out_channels=96, kernel_size=5, stride=2, relu=True, same_padding=True)
+        self.conv2 = Conv2d(in_channels=96, out_channels=128, kernel_size=5, stride=2, relu=False, same_padding=True)
+        self.conv3 = Conv2d(in_channels=128, out_channels=d_g, kernel_size=8, stride=1, relu=True, same_padding=False)
+
+    def forward(self, object_rois, mat_phrase, im_info):
+        num_rois = mat_phrase.size
+        x = np.zeros([num_rois, self.pooling_size, self.pooling_size])
+        weight = (self.pooling_size / im_info[ :2].repeat(2))
+        weight = np.array([weight[1], weight[0], weight[3], weight[2]])
+        coords = np.round(object_rois.cpu().data.numpy()[mat_phrase.reshape(-1)][:, 1:] * weight).astype(int)
+        x1, y1, x2, y2 = coords.T
+        for i in range(num_rois):
+            x[i][x1[i]:x2[i], y1[i]:y2[i]] = 1
+        x = np_to_variable(x).view(-1, 2, self.pooling_size, self.pooling_size)
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        return x
 
 
 def save_net(fname, net):

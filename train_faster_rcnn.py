@@ -14,7 +14,7 @@ import argparse
 import pdb
 
 parser = argparse.ArgumentParser('Options for training RPN in pytorch')
-parser.add_argument('--gpu', type=str, default='0', help='GPU id')
+parser.add_argument('--gpu', type=str, default='2', help='GPU id')
 ## training settings
 parser.add_argument('--lr', type=float, default=0.01, help='To disable the Lanuage Model ')
 parser.add_argument('--max_epoch', type=int, default=12, metavar='N', help='max iterations for training')
@@ -28,7 +28,7 @@ parser.add_argument('--mps_feature_len', type=int, default=4096, help='The expec
 ## Environment Settings
 parser.add_argument('--pretrained_model', type=str, default='model/pretrained_models/VGG_imagenet.npy',
 					help='Path for the to-evaluate model')
-parser.add_argument('--dataset_option', type=str, default='all', help='The dataset to use (small | normal | fat | all)')
+parser.add_argument('--dataset_option', type=str, default='normal', help='The dataset to use (small | normal | fat | all)')
 parser.add_argument('--output_dir', type=str, default='./output/detection', help='Location to output the model')
 parser.add_argument('--model_name', type=str, default='Faster_RCNN_resnet101', help='model name for snapshot')
 parser.add_argument('--resume_model', action='store_true', help='Resume model from the entire model')
@@ -65,7 +65,7 @@ def main():
 	net.cuda()
 
 	if not os.path.exists(args.output_dir):
-		os.mkdir(args.output_dir)
+		os.makedirs(args.output_dir)
 
 	best_map = 0.0
 

@@ -1,0 +1,97 @@
+import torch
+import torch.nn as nn
+import torch.nn.init as init
+import numpy as np
+
+__author__ = "Yu-Hsiang Huang"
+
+class Linear(nn.Module):
+    ''' Simple Linear layer with xavier init '''
+    def __init__(self, d_in, d_out, bias=True):
+        super(Linear, self).__init__()
+        self.linear = nn.Linear(d_in, d_out, bias=bias)
+        init.xavier_normal(self.linear.weight)
+
+    def forward(self, x):
+        return self.linear(x)
+
+class Bottle(nn.Module):
+    ''' Perform the reshape routine before and after an operation '''
+
+    def forward(self, input):
+        if len(input.size()) <= 2:
+            return super(Bottle, self).forward(input)
+        size = input.size()[:2]
+        out = super(Bottle, self).forward(input.view(size[0]*size[1], -1))
+        return out.view(size[0], size[1], -1)
+
+class BottleLinear(Bottle, Linear):
+    ''' Perform the reshape routine before and after a linear projection '''
+    pass
+
+class BottleSoftmax(Bottle, nn.Softmax):
+    ''' Perform the reshape routine before and after a softmax operation'''
+    pass
+
+class LayerNormalization(nn.Module):
+    ''' Layer normalization module '''
+
+    def __init__(self, d_hid, eps=1e-3):
+        super(LayerNormalization, self).__init__()
+
+        self.eps = eps
+        self.a_2 = nn.Parameter(torch.ones(d_hid), requires_grad=True)
+        self.b_2 = nn.Parameter(torch.zeros(d_hid), requires_grad=True)
+
+    def forward(self, z):
+        if z.size(1) == 1:
+            return z
+
+        mu = torch.mean(z, keepdim=True, dim=-1)
+        sigma = torch.std(z, keepdim=True, dim=-1)
+        ln_out = (z - mu.expand_as(z)) / (sigma.expand_as(z) + self.eps)
+        ln_out = ln_out * self.a_2.expand_as(ln_out) + self.b_2.expand_as(ln_out)
+
+        return ln_out
+
+class BatchBottle(nn.Module):
+    ''' Perform the reshape routine before and after an operation '''
+
+    def forward(self, input):
+        if len(input.size()) <= 2:
+            return super(BatchBottle, self).forward(input)
+        size = input.size()[1:]
+        out = super(BatchBottle, self).forward(input.view(-1, size[0]*size[1]))
+        return out.view(-1, size[0], size[1])
+
+class BottleLayerNormalization(BatchBottle, LayerNormalization):
+    ''' Perform the reshape routine before and after a layer normalization'''
+    pass
+
+class  Relation_Feature_Computation(nn.Module):
+    '''  Relation_Feature_Computation '''
+
+    def __init__(self, d_f, d_k, d_v, d_g, attn_dropout=0.1):
+        super( Relation_Feature_Computation, self).__init__()
+        self.temper = np.power(d_k, 0.5)
+        self.d_v = d_v
+        self.d_g = d_g
+        self.dropout = nn.Dropout(attn_dropout)
+        self.linear_k = Linear(d_f, d_k)
+        self.linear_q = Linear(d_f, d_k)
+        self.linear_v = Linear(d_f, d_v)
+        self.linear_g = Linear(d_g, 1)
+
+
+
+
+
+    def forward(self, feature_a, feature_g):
+
+        attn = torch.bmm(q, k.transpose(1, 2)) / self.temper
+
+        attn = self.softmax(attn)
+        attn = self.dropout(attn)
+        output = torch.bmm(attn, v)
+
+        return output, attn
